@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+.venv/
+venv/
+ENV/
+*.egg-info/
+build/
+dist/
+
+# Repopilot local cloned repos
+repos/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environments / secrets
+.env
+.env.*
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo

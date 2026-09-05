@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "repopilot"
+version = "0.1.0"
+description = "Autonomous code intelligence engine"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "gitpython>=3.1.43",
+    "pydantic>=2.8.0",
+    "pytest>=8.0.0",
+    "httpx>=0.27.0",
+    "tree-sitter>=0.21.0,<0.22.0",
+    "tree-sitter-languages>=1.10.2",
+    "chromadb>=0.5.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["repopilot*"]

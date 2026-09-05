@@ -293,6 +293,25 @@ class RepoIngestor:
         repo, repo_id, active_branch, commit_hash = self.clone_or_update(repo_url, branch=branch)
         target_dir = self._get_target_dir(repo_id)
 
+        # Save metadata for fast dashboard inspection
+        try:
+            import json
+            meta_path = target_dir / ".repo_meta.json"
+            meta_path.write_text(
+                json.dumps(
+                    {
+                        "repo_id": repo_id,
+                        "url": repo_url,
+                        "branch": active_branch,
+                        "commit_hash": commit_hash,
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+        except Exception as e:
+            logger.debug("Failed to write .repo_meta.json: %s", e)
+
         files = self.walk_and_filter(target_dir)
 
         return RepoStatus(
@@ -303,3 +322,71 @@ class RepoIngestor:
             file_count=len(files),
             files=files,
         )
+
+    def list_repos(self) -> List[dict]:
+        """Scan base_storage_dir and return metadata for all cloned repositories."""
+        repos = []
+        if not self.base_storage_dir.exists():
+            return repos
+
+        for item in self.base_storage_dir.iterdir():
+            if not item.is_dir() or not (item / ".git").exists():
+                continue
+
+            repo_id = item.name
+            url = ""
+            branch = "HEAD"
+            commit_hash = ""
+            commit_message = ""
+            commit_date = ""
+
+            # Check .repo_meta.json first
+            meta_file = item / ".repo_meta.json"
+            if meta_file.exists():
+                try:
+                    import json
+                    meta = json.loads(meta_file.read_text(encoding="utf-8"))
+                    url = meta.get("url", "")
+                    branch = meta.get("branch", branch)
+                    commit_hash = meta.get("commit_hash", commit_hash)
+                except Exception:
+                    pass
+
+            try:
+                git_repo = git.Repo(item)
+                if not url and git_repo.remotes:
+                    url = git_repo.remotes.origin.url if "origin" in git_repo.remotes else git_repo.remotes[0].url
+
+                try:
+                    branch = git_repo.active_branch.name
+                except Exception:
+                    pass
+
+                if git_repo.heads or git_repo.remotes:
+                    head_commit = git_repo.head.commit
+                    commit_hash = head_commit.hexsha
+                    commit_message = head_commit.message.strip().split("\n")[0]
+                    commit_date = head_commit.committed_datetime.isoformat()
+            except Exception as e:
+                logger.debug("Error reading git repo at %s: %s", item, e)
+
+            # Count files
+            try:
+                files = self.walk_and_filter(item)
+                file_count = len(files)
+            except Exception:
+                file_count = 0
+
+            repos.append({
+                "repo_id": repo_id,
+                "url": url or f"local://{repo_id}",
+                "branch": branch,
+                "commit_hash": commit_hash,
+                "commit_message": commit_message,
+                "commit_date": commit_date,
+                "file_count": file_count,
+            })
+
+        repos.sort(key=lambda r: r.get("commit_date", "") or "", reverse=True)
+        return repos
+

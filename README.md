@@ -32,6 +32,7 @@ The system operates across four coordinated stages:
    - Protects against directory traversal and limits file slice sizes.
    - Enforces a hard step limit to prevent infinite loops.
    - Extracts structured per-claim evidence citations with narrow line ranges directly from verified source files on disk.
+   - Supports real-time Server-Sent Events (SSE) streaming for live step-by-step UI updates.
 
 ---
 
@@ -44,7 +45,7 @@ Repopilot-AI/
 │   ├── repopilot/
 │   │   ├── main.py            # FastAPI application entrypoint
 │   │   ├── api/
-│   │   │   └── routes.py      # REST API route handlers
+│   │   │   └── routes.py      # REST & SSE streaming API route handlers
 │   │   ├── ingestion/
 │   │   │   └── clone.py       # Git cloning, syncing, and file filtering
 │   │   ├── indexing/
@@ -56,20 +57,28 @@ Repopilot-AI/
 │   │   │   ├── code_tools.py  # Codebase inspection tools and schemas
 │   │   │   └── __init__.py    # Tools exports
 │   │   ├── agent/
-│   │   │   ├── loop.py        # Autonomous ReAct agent loop
+│   │   │   ├── loop.py        # Autonomous ReAct agent loop (sync & SSE streaming)
 │   │   │   ├── llm.py         # Multi-provider LLM clients (Gemini, OpenAI, Mock)
 │   │   │   ├── models.py      # AgentStep, EvidenceCitation, Query schemas
 │   │   │   └── __init__.py    # Agent exports
 │   │   └── models/
 │   │       └── schemas.py     # API request and response schemas
 │   └── tests/
-│       ├── test_api.py        # API health and endpoint tests
+│       ├── test_api.py        # API health, repos listing, and streaming tests
 │       ├── test_ingestion.py  # Git cloning and filtering tests
 │       ├── test_parser.py     # AST parsing and symbol table tests
 │       ├── test_vector_store.py # ChromaDB and embedding tests
 │       └── test_agent.py      # Tool, loop, and ask endpoint tests
+├── frontend/                  # React + Vite + Tailwind web application
+│   ├── src/
+│   │   ├── components/        # Header, CodeViewer, and UI components
+│   │   ├── views/             # ConnectRepoView, DashboardView, AskView
+│   │   ├── lib/               # API client and SSE streaming handler
+│   │   └── types/             # TypeScript definitions
+│   ├── package.json
+│   └── vite.config.ts
+├── render.yaml                # Render Blueprint deployment specification
 ├── documentation/             # Detailed architecture and API references
-├── frontend/                  # Frontend user interface directory
 └── requirements.txt           # Unified dependency listing
 ```
 
@@ -79,10 +88,11 @@ Repopilot-AI/
 
 ### Prerequisites
 
-- Python 3.10 or higher (Python 3.12 recommended)
+- Python 3.10 or higher (Python 3.11 or 3.12 recommended)
+- Node.js 18 or higher (for frontend development)
 - Git installed and available on PATH
 
-### 1. Set Up Virtual Environment
+### 1. Set Up Backend Virtual Environment
 
 ```bash
 # Create virtual environment
@@ -93,29 +103,45 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 # On Linux / macOS:
 source .venv/bin/activate
-```
 
-### 2. Install Dependencies
-
-```bash
+# Install dependencies
 pip install -r requirements.txt
 pip install -e backend
 ```
 
----
-
-## Running the Server
-
-Start the FastAPI application with Uvicorn:
+### 2. Set Up Frontend
 
 ```bash
+cd frontend
+npm install
+cd ..
+```
+
+---
+
+## Running Locally
+
+### 1. Run Backend Server
+
+```bash
+# From workspace root with activated virtual environment
 uvicorn repopilot.main:app --reload --port 8000
 ```
 
-Once running:
 - API Base URL: `http://localhost:8000`
-- Swagger Documentation: `http://localhost:8000/docs`
-- ReDoc Documentation: `http://localhost:8000/redoc`
+- Interactive Swagger Docs: `http://localhost:8000/docs`
+- Service Health: `http://localhost:8000/health`
+
+### 2. Run Frontend Web Application
+
+```bash
+# In a second terminal
+cd frontend
+npm run dev
+```
+
+- Web Interface: `http://localhost:5173`
+- The Vite dev server proxies API calls to `http://localhost:8000`.
 
 ---
 
@@ -127,13 +153,17 @@ Execute the complete test suite across all four phases:
 pytest -v backend/tests
 ```
 
-All 32 tests run offline by default without requiring external API keys.
+All 38 tests run offline by default without requiring external API keys.
 
 ---
 
 ## API Endpoints
 
-### 1. Ingest Repository
+### 1. List Ingested Repositories
+- **GET** `/repos`
+- Returns a list of all local repositories, their commit hashes, commit messages, file counts, and ChromaDB indexing statuses.
+
+### 2. Ingest Repository
 - **POST** `/repos`
 - Request:
   ```json
@@ -142,18 +172,22 @@ All 32 tests run offline by default without requiring external API keys.
     "branch": "main"
   }
   ```
-- Response: Returns `repo_id`, commit hash, total valid file count, and filtered file listing.
+- Returns `repo_id`, commit hash, total valid file count, and filtered file listing.
 
-### 2. Index Repository
+### 3. Index Repository
 - **POST** `/repos/{repo_id}/index`
 - Parameters: `force` (boolean, optional, default `false`)
-- Response: Parses AST symbols, computes embeddings, and stores chunks in ChromaDB. Returns `chunks_count`, `symbols_count`, and whether indexing was skipped via commit cache.
+- Parses AST symbols, computes embeddings, and stores chunks in ChromaDB. Employs commit-hash caching to skip unchanged commits.
 
-### 3. Semantic Search
+### 4. Semantic Search
 - **GET** `/repos/{repo_id}/search?query=handle+timeout+retries&limit=5`
-- Response: Ranked list of matching code chunks with file paths, line ranges, symbol identities, docstrings, similarity scores, and code previews.
+- Returns ranked code chunks with file paths, line ranges, symbol identities, and docstrings.
 
-### 4. Ask Autonomous Agent
+### 5. Read Source File Slice
+- **GET** `/repos/{repo_id}/file?file_path=requests/sessions.py&start_line=1&end_line=50`
+- Reads bounded source lines from disk with path traversal protections.
+
+### 6. Ask Autonomous Agent (Blocking)
 - **POST** `/repos/{repo_id}/ask`
 - Request:
   ```json
@@ -163,7 +197,11 @@ All 32 tests run offline by default without requiring external API keys.
     "model_provider": "gemini"
   }
   ```
-- Response: Returns synthesized answer, execution trajectory steps, and verified evidence citations extracted from actual source lines on disk.
+- Returns synthesized answer, execution trajectory steps, and verified evidence citations.
+
+### 7. Ask Autonomous Agent (Live SSE Stream)
+- **POST** `/repos/{repo_id}/ask/stream`
+- Streams real-time Server-Sent Events (`step_start`, `step_complete`, `synthesizing`, `complete`, `error`) for live investigation tracking in the web interface.
 
 ---
 
@@ -179,3 +217,44 @@ The system works out of the box with built-in mock and local providers. For prod
 | `REPOPILOT_LLM_PROVIDER` | Preferred LLM provider (`gemini`, `openai`, `mock`) | Auto-detected |
 | `REPOPILOT_LLM_MODEL` | Specific model name (e.g., `gemini-3.7-flash`, `gpt-4o-mini`) | Provider default |
 | `EMBEDDING_PROVIDER` | Preferred embedding model (`openai`, `voyage`, `local_onnx`, `mock`) | Auto-detected |
+
+---
+
+## Deployment on Render
+
+This repository includes a `render.yaml` blueprint for one-click deployment on Render.
+
+### Method 1: Using Render Blueprint (Recommended)
+
+1. Push your repository to GitHub.
+2. Open the [Render Dashboard](https://dashboard.render.com).
+3. Click **New +** and select **Blueprint**.
+4. Connect your GitHub repository (`Repopilot-AI`).
+5. Render detects `render.yaml` and provisions two services:
+   - `repopilot-api`: Python web service running FastAPI and Uvicorn.
+   - `repopilot-ui`: Static site building the React frontend with Vite.
+6. In the Render dashboard, navigate to `repopilot-api` -> **Environment** and add your API keys:
+   - `GEMINI_API_KEY`: Your Google Gemini API key
+   - `OPENAI_API_KEY` (optional): Your OpenAI API key
+7. Click **Apply**. Both services will build and deploy automatically.
+
+### Method 2: Manual Service Creation
+
+If you prefer to configure services individually in Render:
+
+#### 1. Backend Web Service:
+- **Environment**: Python
+- **Build Command**: `pip install -r requirements.txt && pip install -e backend`
+- **Start Command**: `uvicorn repopilot.main:app --host 0.0.0.0 --port $PORT`
+- **Environment Variables**:
+  - `PYTHON_VERSION`: `3.11.9`
+  - `GEMINI_API_KEY`: `<your-key>`
+  - `REPOPILOT_LLM_PROVIDER`: `gemini`
+
+#### 2. Frontend Static Site:
+- **Root Directory**: `frontend`
+- **Build Command**: `npm install && npm run build`
+- **Publish Directory**: `dist`
+- **Rewrite Rules**: Source: `/*` -> Destination: `/index.html`
+- **Environment Variables**:
+  - `VITE_API_URL`: `https://<your-repopilot-api-url>.onrender.com`

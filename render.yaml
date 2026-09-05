@@ -1,0 +1,35 @@
+services:
+  # Backend API Web Service
+  - type: web
+    name: repopilot-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt && pip install -e backend
+    startCommand: uvicorn repopilot.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: REPOPILOT_LLM_PROVIDER
+        value: gemini
+
+  # Frontend Static Site
+  - type: static
+    name: repopilot-ui
+    rootDir: frontend
+    plan: free
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: repopilot-api
+          property: host

@@ -1,13 +1,32 @@
-# Repopilot AI - Frontend
+# React + TypeScript + Vite
 
-This directory is designated for the Repopilot AI web interface and user dashboard.
+This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
-## Planned Features
-- **Repository Onboarding**: Input Git repo URL, branch selector, and live cloning/indexing progress.
-- **File Explorer & AST Graph**: Interactive visualization of indexed code files, directories, and structural AST components.
-- **Agent Copilot Chat**: Interactive chat UI with tool execution inspection (code search, symbol lookup, file viewing) and citation cards showing exact source code evidence.
-- **Diff & Evidence Viewer**: Side-by-side code viewer highlighting lines referenced by the AI assistant.
+Currently, two official plugins are available:
 
-## Tech Stack (Planned)
-- Modern SPA / Next.js / Vite + React with TypeScript
-- Responsive dark-mode interface with streaming token responses
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+
+## React Compiler
+
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+
+## Expanding the Oxlint configuration
+
+If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+
+```json
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "oxc"],
+  "options": {
+    "typeAware": true
+  },
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/only-export-components": ["warn", { "allowConstantExport": true }]
+  }
+}
+```
+
+See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.

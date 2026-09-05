@@ -208,8 +208,8 @@ class AgentLoop:
 
         return clean_answer, evidence
 
-    async def run(self, query: str, max_steps: int = 6) -> QueryResponse:
-        """Run the multi-step investigation loop to answer the query."""
+    async def run_stream(self, query: str, max_steps: int = 6):
+        """Run the multi-step investigation loop, yielding SSE event dicts for live streaming."""
         max_steps = max(1, min(max_steps, 15))
         messages: List[Dict[str, Any]] = [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -219,6 +219,11 @@ class AgentLoop:
         steps: List[AgentStep] = []
         completed = False
         final_answer = ""
+
+        yield {
+            "event": "start",
+            "data": {"repo_id": self.repo_id, "query": query, "max_steps": max_steps},
+        }
 
         for step_num in range(1, max_steps + 1):
             logger.debug("Agent [%s] starting Step %d / %d", self.repo_id, step_num, max_steps)
@@ -230,13 +235,23 @@ class AgentLoop:
             except Exception as e:
                 logger.exception("LLM generation error at step %d: %s", step_num, e)
                 final_answer = f"Investigation halted due to an LLM provider error: {str(e)}"
+                yield {"event": "error", "data": {"error": str(e), "step": step_num}}
                 break
 
             if result.is_tool_call and result.tool_name:
-                # Execute tool
                 tool_name = result.tool_name
                 tool_args = result.tool_args or {}
                 thought = result.content
+
+                yield {
+                    "event": "step_start",
+                    "data": {
+                        "step_number": step_num,
+                        "thought": thought,
+                        "tool_name": tool_name,
+                        "tool_input": tool_args,
+                    },
+                }
 
                 logger.debug("Step %d: calling tool '%s' with args %s", step_num, tool_name, tool_args)
                 observation = self.tools.execute(tool_name, tool_args)
@@ -250,6 +265,11 @@ class AgentLoop:
                     observation=observation,
                 )
                 steps.append(step)
+
+                yield {
+                    "event": "step_complete",
+                    "data": step.model_dump(),
+                }
 
                 # Append to messages history in standard function-calling format
                 call_id = f"call_{step_num}_{tool_name}"
@@ -289,6 +309,7 @@ class AgentLoop:
         # If max_steps reached without final answer, force synthesis
         if not completed and not final_answer:
             logger.info("Agent [%s] reached max_steps (%d). Forcing answer synthesis.", self.repo_id, max_steps)
+            yield {"event": "synthesizing", "data": {"message": "Reached step limit. Synthesizing evidence..."}}
             messages.append(
                 {
                     "role": "user",
@@ -310,11 +331,13 @@ class AgentLoop:
                 final_answer = synthesis_result.content or "Maximum steps reached with partial evidence."
             except Exception as e:
                 final_answer = f"Investigation concluded at step limit ({max_steps} steps). LLM synthesis note: {str(e)}"
+        else:
+            yield {"event": "synthesizing", "data": {"message": "Compiling structured code citations..."}}
 
         # Compile structured evidence citations (paired per-claim or from tool history)
         final_answer, evidence = self._extract_evidence(final_answer, steps)
 
-        return QueryResponse(
+        response = QueryResponse(
             repo_id=self.repo_id,
             query=query,
             answer=final_answer,
@@ -323,3 +346,29 @@ class AgentLoop:
             total_steps=len(steps),
             completed=completed,
         )
+
+        yield {
+            "event": "complete",
+            "data": response.model_dump(),
+        }
+
+    async def run(self, query: str, max_steps: int = 6) -> QueryResponse:
+        """Run the multi-step investigation loop to answer the query."""
+        last_response: Optional[QueryResponse] = None
+        async for item in self.run_stream(query=query, max_steps=max_steps):
+            if item["event"] == "complete":
+                last_response = QueryResponse(**item["data"])
+
+        if last_response:
+            return last_response
+
+        return QueryResponse(
+            repo_id=self.repo_id,
+            query=query,
+            answer="Investigation terminated prematurely.",
+            evidence=[],
+            steps=[],
+            total_steps=0,
+            completed=False,
+        )
+

@@ -1,8 +1,8 @@
-"""FastAPI API routes for Repopilot AI."""
-
+import json
 import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 import git
 
 from repopilot.agent import AgentLoop, QueryRequest, QueryResponse, get_llm_client
@@ -15,8 +15,15 @@ from repopilot.ingestion.clone import (
     RepoAccessError,
     RepoIngestor,
 )
-from repopilot.models.schemas import ErrorDetail, RepoCreateRequest, RepoStatus
+from repopilot.models.schemas import (
+    ErrorDetail,
+    FileContentResponse,
+    RepoCreateRequest,
+    RepoStatus,
+    RepoSummary,
+)
 from repopilot.tools import CodebaseTools
+
 
 logger = logging.getLogger("repopilot.api")
 
@@ -50,8 +57,53 @@ def get_code_parser() -> CodeParser:
         _default_code_parser = CodeParser()
     return _default_code_parser
 
+@router.get(
+    "/repos",
+    response_model=List[RepoSummary],
+    status_code=status.HTTP_200_OK,
+    summary="List all locally cloned repositories with commit and index status",
+    description="Scans local storage for cloned repositories and returns active branch, latest commit, and ChromaDB indexing status.",
+)
+async def list_repos(
+    ingestor: RepoIngestor = Depends(get_repo_ingestor),
+    vector_store: ChromaVectorStore = Depends(get_vector_store),
+) -> List[RepoSummary]:
+    """Scans local storage for cloned repositories and returns their active branch, commit, and index status."""
+    raw_repos = ingestor.list_repos()
+    results: List[RepoSummary] = []
+    for r in raw_repos:
+        repo_id = r["repo_id"]
+        commit_hash = r.get("commit_hash", "")
+        is_indexed = vector_store.is_indexed(repo_id, commit_hash) if commit_hash else False
+        status_str = "indexed" if is_indexed else "cloned"
+
+        indexed_chunks = 0
+        if is_indexed:
+            try:
+                coll = vector_store._get_collection(repo_id)
+                indexed_chunks = coll.count()
+            except Exception:
+                pass
+
+        results.append(
+            RepoSummary(
+                repo_id=repo_id,
+                url=r.get("url", ""),
+                branch=r.get("branch", "HEAD"),
+                commit_hash=commit_hash,
+                commit_message=r.get("commit_message"),
+                commit_date=r.get("commit_date"),
+                file_count=r.get("file_count", 0),
+                is_indexed=is_indexed,
+                indexed_chunks=indexed_chunks,
+                status=status_str,
+            )
+        )
+    return results
+
 
 @router.post(
+
     "/repos",
     response_model=RepoStatus,
     status_code=status.HTTP_200_OK,
@@ -270,4 +322,140 @@ async def ask_repo(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Agent investigation failed: {str(e)}",
         ) from e
+
+
+@router.post(
+    "/repos/{repo_id}/ask/stream",
+    summary="Ask a question with Server-Sent Events (SSE) streaming investigation steps",
+    description="Streams live ReAct investigation steps and final answer over Server-Sent Events.",
+)
+async def ask_repo_stream(
+    repo_id: str,
+    request: QueryRequest,
+    ingestor: RepoIngestor = Depends(get_repo_ingestor),
+    vector_store: ChromaVectorStore = Depends(get_vector_store),
+):
+    """Streams live ReAct investigation steps and final answer over Server-Sent Events."""
+    target_dir = ingestor._get_target_dir(repo_id)
+    if not target_dir.exists() or not (target_dir / ".git").exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Repository '{repo_id}' not found locally. Call POST /repos first.",
+        )
+
+    tools = CodebaseTools(
+        repo_id=repo_id,
+        target_dir=target_dir,
+        vector_store=vector_store,
+    )
+    llm_client = get_llm_client(
+        provider=request.model_provider,
+        model_name=request.model_name,
+    )
+    agent = AgentLoop(
+        repo_id=repo_id,
+        target_dir=target_dir,
+        tools=tools,
+        llm_client=llm_client,
+    )
+
+    async def event_generator():
+        try:
+            async for event in agent.run_stream(query=request.query, max_steps=request.max_steps):
+                event_name = event.get("event", "message")
+                event_data = json.dumps(event.get("data", {}))
+                yield f"event: {event_name}\ndata: {event_data}\n\n"
+        except Exception as e:
+            logger.exception("Error in agent stream: %s", e)
+            err_data = json.dumps({"error": str(e)})
+            yield f"event: error\ndata: {err_data}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.get(
+    "/repos/{repo_id}/ask/stream",
+    summary="Ask a question with SSE streaming (GET query param support)",
+)
+async def ask_repo_stream_get(
+    repo_id: str,
+    query: str = Query(..., min_length=1),
+    max_steps: int = Query(default=6, ge=1, le=15),
+    model_provider: Optional[str] = Query(default=None),
+    model_name: Optional[str] = Query(default=None),
+    ingestor: RepoIngestor = Depends(get_repo_ingestor),
+    vector_store: ChromaVectorStore = Depends(get_vector_store),
+):
+    """GET variant of the SSE streaming endpoint for native EventSource compatibility."""
+    req = QueryRequest(
+        query=query,
+        max_steps=max_steps,
+        model_provider=model_provider,
+        model_name=model_name,
+    )
+    return await ask_repo_stream(
+        repo_id=repo_id,
+        request=req,
+        ingestor=ingestor,
+        vector_store=vector_store,
+    )
+
+
+@router.get(
+    "/repos/{repo_id}/file",
+    response_model=FileContentResponse,
+    summary="Read lines from a file in the repository for evidence highlighting",
+)
+async def get_repo_file_content(
+    repo_id: str,
+    file_path: str = Query(..., description="Relative file path"),
+    start_line: int = Query(default=1, ge=1),
+    end_line: int = Query(default=200, ge=1),
+    ingestor: RepoIngestor = Depends(get_repo_ingestor),
+) -> FileContentResponse:
+    """Reads slice of source code from disk for evidence inspection."""
+    target_dir = ingestor._get_target_dir(repo_id)
+    if not target_dir.exists() or not (target_dir / ".git").exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Repository '{repo_id}' not found locally.",
+        )
+
+    clean_path = file_path.lstrip("/\\")
+    full_path = (target_dir / clean_path).resolve()
+    if not full_path.is_relative_to(target_dir.resolve()) or not full_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"File '{file_path}' not found in repository.",
+        )
+
+    try:
+        with open(full_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+        total_lines = len(lines)
+        s_line = max(1, min(start_line, total_lines if total_lines > 0 else 1))
+        e_line = max(s_line, min(end_line, total_lines if total_lines > 0 else 1))
+        slice_lines = lines[s_line - 1 : e_line]
+        return FileContentResponse(
+            repo_id=repo_id,
+            file_path=file_path,
+            total_lines=total_lines,
+            start_line=s_line,
+            end_line=e_line,
+            content="".join(slice_lines),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Could not read file '{file_path}': {str(e)}",
+        ) from e
+
 

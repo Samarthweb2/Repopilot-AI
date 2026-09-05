@@ -8,6 +8,13 @@
     color: #031728;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow-x: hidden;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  p {
+    font-size: 0.9375rem; /* 15px normal reading size */
+    line-height: 1.6;
   }
 
   #root {
@@ -19,23 +26,20 @@
   }
 }
 
-/* Nebius Signature Mosaic Hero Background */
+/* Nebius Signature Hero Gradient & Grid Texture */
 .nebius-hero-container {
   position: relative;
-  background: linear-gradient(135deg, #c7fa00 0%, #d8ff24 35%, #e9ff6b 65%, #f6ffe0 100%);
+  background: linear-gradient(135deg, #D7F227 0%, #A3E635 100%);
   overflow: hidden;
 }
 
-/* Geometric Digital Pixel Mosaic Overlay */
-.nebius-mosaic-pattern {
+/* Subtle Grid Texture Overlay: 40px intervals, 4% black opacity, horizontal and vertical */
+.nebius-hero-grid {
   position: absolute;
   inset: 0;
   background-image: 
-    radial-gradient(circle at 85% 15%, rgba(210, 254, 34, 0.9) 0%, transparent 40%),
-    radial-gradient(circle at 10% 85%, rgba(235, 255, 120, 0.8) 0%, transparent 45%),
-    linear-gradient(to right, rgba(255, 255, 255, 0.15) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.15) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 28px 28px, 28px 28px;
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.04) 0px, rgba(0, 0, 0, 0.04) 1px, transparent 1px, transparent 40px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.04) 0px, rgba(0, 0, 0, 0.04) 1px, transparent 1px, transparent 40px);
   pointer-events: none;
 }
 
@@ -167,3 +171,77 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* Typewriter Cursor Blinking */
+@keyframes cursor-blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.animate-cursor-blink {
+  animation: cursor-blink 0.75s ease-in-out infinite;
+}
+
+/* Floating Animations for Hero Visuals */
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(0.5deg);
+  }
+}
+
+.animate-float-slow {
+  animation: float-slow 4s ease-in-out infinite;
+}
+
+@keyframes float-reverse {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(6px) rotate(-0.5deg);
+  }
+}
+
+.animate-float-reverse {
+  animation: float-reverse 4.8s ease-in-out infinite;
+}
+
+/* Staggered Entrance Animation for Hero Floating Collage */
+@keyframes collage-entrance {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-collage-step-1 {
+  opacity: 0;
+  animation: collage-entrance 600ms cubic-bezier(0.16, 1, 0.3, 1) 0ms forwards;
+}
+
+.animate-collage-step-2 {
+  opacity: 0;
+  animation: collage-entrance 600ms cubic-bezier(0.16, 1, 0.3, 1) 150ms forwards;
+}
+
+.animate-collage-step-3 {
+  opacity: 0;
+  animation: collage-entrance 600ms cubic-bezier(0.16, 1, 0.3, 1) 300ms forwards;
+}
+
+.animate-collage-step-4 {
+  opacity: 0;
+  animation: collage-entrance 600ms cubic-bezier(0.16, 1, 0.3, 1) 450ms forwards;
+}
+

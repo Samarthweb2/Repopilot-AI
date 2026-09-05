@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   ArrowRight,
   Bot,
@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Sparkles,
   Terminal,
+  X,
   Zap,
 } from 'lucide-react'
 
@@ -26,6 +27,7 @@ interface LandingPageViewProps {
   onNavigateToConnect: () => void
   onNavigateToDashboard: () => void
   onNavigateToAsk: () => void
+  onRegister?: () => void
   repoCount: number
 }
 
@@ -62,14 +64,44 @@ const FAQS = [
   },
 ]
 
+const HEADLINE_LINE1 = ['Ask', 'your', 'codebase', 'anything.']
+const HEADLINE_LINE2 = ['Get', 'answers', 'you', 'can', 'verify.']
+const TOTAL_WORDS = [...HEADLINE_LINE1, ...HEADLINE_LINE2]
+
 export const LandingPageView: React.FC<LandingPageViewProps> = ({
   onNavigateToConnect,
   onNavigateToDashboard,
   onNavigateToAsk,
+  onRegister,
   repoCount,
 }) => {
   const [copiedCode, setCopiedCode] = useState(false)
   const [openFaq, setOpenFaq] = useState<number | null>(0)
+  const [showRegisterModal, setShowRegisterModal] = useState(false)
+
+  // Typewriter animation state (word-by-word at ~90ms interval)
+  const [typedWordCount, setTypedWordCount] = useState(0)
+  const [isTypingComplete, setIsTypingComplete] = useState(false)
+
+  useEffect(() => {
+    if (typedWordCount < TOTAL_WORDS.length) {
+      const timer = setTimeout(() => {
+        setTypedWordCount((prev) => prev + 1)
+      }, 90)
+      return () => clearTimeout(timer)
+    } else {
+      const completeTimer = setTimeout(() => {
+        setIsTypingComplete(true)
+      }, 100)
+      return () => clearTimeout(completeTimer)
+    }
+  }, [typedWordCount])
+
+  const line1VisibleWords = HEADLINE_LINE1.slice(0, Math.min(typedWordCount, HEADLINE_LINE1.length))
+  const line2VisibleWords =
+    typedWordCount > HEADLINE_LINE1.length
+      ? HEADLINE_LINE2.slice(0, typedWordCount - HEADLINE_LINE1.length)
+      : []
 
   const pythonApiSnippet = `from repopilot import RepoPilotClient
 
@@ -108,68 +140,102 @@ for citation in investigation.evidence:
 
   return (
     <div className="w-full bg-[#f8fafc] text-[#031728] selection:bg-[#D2FE22] selection:text-black">
-      {/* 1. Hero Section: Midnight Teal Theme (#052b42) */}
-      <section className="relative bg-[#052b42] text-white py-20 lg:py-28 px-4 sm:px-6 lg:px-8 overflow-hidden border-b border-white/10">
-        {/* Subtle Ambient Radial Gradients */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundImage: `
-              radial-gradient(circle at 80% 20%, rgba(210, 254, 34, 0.15) 0%, transparent 45%),
-              radial-gradient(circle at 20% 80%, rgba(56, 189, 248, 0.12) 0%, transparent 50%)
-            `,
-          }}
-        />
+      {/* 1. Hero Section: Full-bleed Lime Gradient (135deg, #D7F227 to #A3E635) with 40px subtle grid texture */}
+      <section className="nebius-hero-container text-[#031728] py-20 lg:py-28 px-4 sm:px-6 lg:px-8 border-b border-black/10">
+        {/* Subtle grid texture overlay: 40px intervals, 4% black opacity, horizontal & vertical */}
+        <div className="nebius-hero-grid" />
 
-        <div className="max-w-7xl mx-auto relative z-10 space-y-8">
-          {/* Pill Badges */}
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold tracking-tight bg-[#D2FE22] text-black font-nebius">
-              <Zap className="w-3.5 h-3.5 fill-black" />
-              REPOPILOT CODE FACTORY
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-semibold bg-white/10 text-slate-200 border border-white/15 backdrop-blur-md">
-              <Cpu className="w-3.5 h-3.5 text-[#D2FE22]" />
-              Autonomous Code Intelligence
-            </span>
+        <div className="max-w-7xl mx-auto relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+          {/* Left Column: Copy & Actions */}
+          <div className="lg:col-span-7 space-y-6 sm:space-y-7">
+            {/* Top Frosted Pill Badges */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="nebius-pill-tag">
+                RepoPilot AI
+              </span>
+              <span className="nebius-pill-tag">
+                Early Preview
+              </span>
+            </div>
+
+            {/* Word-by-word typewriter headline in Space Mono font */}
+            <div className="space-y-4 max-w-2xl">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-['Space_Mono',monospace] text-[#031728] tracking-tight leading-snug min-h-[3.5rem] sm:min-h-[4.2rem]">
+                {line1VisibleWords.length > 0 && (
+                  <span>{line1VisibleWords.join(' ')}</span>
+                )}
+                {typedWordCount <= HEADLINE_LINE1.length && !isTypingComplete && (
+                  <span className="inline-block w-2 sm:w-2.5 h-5 sm:h-6 bg-[#031728] ml-1.5 align-middle animate-cursor-blink" />
+                )}
+
+                {typedWordCount > HEADLINE_LINE1.length && (
+                  <>
+                    <br className="hidden sm:inline" />
+                    <span className="sm:hidden"> </span>
+                    <span>{line2VisibleWords.join(' ')}</span>
+                    {!isTypingComplete && (
+                      <span className="inline-block w-2 sm:w-2.5 h-5 sm:h-6 bg-[#031728] ml-1.5 align-middle animate-cursor-blink" />
+                    )}
+                  </>
+                )}
+              </h1>
+
+              {/* Subtitle & CTA Buttons: Fade in (~500ms) once typing completes */}
+              <div
+                className={`space-y-6 transition-all duration-500 ease-out ${
+                  isTypingComplete
+                    ? 'opacity-100 translate-y-0'
+                    : 'opacity-0 translate-y-2 pointer-events-none'
+                }`}
+              >
+                <p className="text-slate-800/90 text-sm sm:text-base font-normal leading-relaxed max-w-xl">
+                  Every claim cited down to the exact line.
+                </p>
+
+                {/* Two Action Buttons: Register now & Launch Workspace */}
+                <div className="flex flex-wrap items-center gap-4 pt-1">
+                  <button
+                    id="hero-btn-register"
+                    onClick={() => {
+                      if (onRegister) {
+                        onRegister()
+                      } else {
+                        setShowRegisterModal(true)
+                      }
+                    }}
+                    className="inline-flex items-center justify-center px-6 py-2.5 rounded-full text-sm font-semibold bg-[#031728] text-white hover:bg-[#072440] transition-all shadow-sm cursor-pointer"
+                  >
+                    <span>Register now</span>
+                  </button>
+
+                  <button
+                    id="hero-btn-launch"
+                    onClick={onNavigateToAsk}
+                    className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold bg-white/45 text-[#031728] hover:bg-white/65 border border-black/15 transition-all shadow-xs cursor-pointer backdrop-blur-md"
+                  >
+                    <span>Launch Workspace</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* High-Impact Monospace Headline */}
-          <div className="space-y-4 max-w-4xl">
-            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold font-nebius text-white tracking-tight leading-[1.1]">
-              Inference at codebase scale, from raw Git to governed answers.
-            </h1>
-            <p className="text-slate-300 text-lg sm:text-xl font-normal leading-relaxed max-w-3xl">
-              Lightning-fast Tree-sitter AST symbol parsing. Effortless ChromaDB semantic retrieval.
-              Verifiable multi-step ReAct agent investigations with per-claim line citations.
-            </p>
-          </div>
+          {/* Right Column: Hero Graphic Frame (Static, No Floating) */}
+          <div className="lg:col-span-5 relative flex items-center justify-center">
+            {/* Ambient Backlight Glow */}
+            <div className="absolute -inset-2 bg-gradient-to-tr from-white/60 via-[#d7f227]/50 to-white/40 rounded-3xl blur-2xl -z-10 opacity-75" />
 
-          {/* Dual Action CTA Buttons */}
-          <div className="flex flex-wrap items-center gap-4 pt-4">
-            <button
-              onClick={onNavigateToAsk}
-              className="nebius-btn-primary cursor-pointer text-sm sm:text-base font-semibold !bg-[#D2FE22] !text-black hover:!bg-[#e3ff5c] shadow-lg shadow-[#D2FE22]/20"
-            >
-              <span>Launch Workspace</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-
-            <button
-              onClick={onNavigateToConnect}
-              className="nebius-btn-secondary cursor-pointer text-sm sm:text-base font-semibold !bg-white/10 !text-white !border-white/20 hover:!bg-white/20"
-            >
-              <FolderGit2 className="w-4 h-4 text-[#D2FE22]" />
-              <span>Connect Repository</span>
-            </button>
-
-            <button
-              onClick={onNavigateToDashboard}
-              className="nebius-btn-secondary cursor-pointer text-sm sm:text-base font-semibold !bg-white/5 !text-slate-200 !border-white/15 hover:!bg-white/15"
-            >
-              <Database className="w-4 h-4 text-[#38bdf8]" />
-              <span>Browse Repositories ({repoCount})</span>
-            </button>
+            {/* Clean Static Illustration Frame */}
+            <div className="relative w-full max-w-[460px] select-none rounded-2xl overflow-hidden border border-black/15 shadow-2xl bg-white/20 backdrop-blur-sm">
+              <img
+                src="/hero-developer.png"
+                alt="RepoPilot AI Codebase Intelligence"
+                className="w-full h-auto object-cover rounded-2xl block"
+              />
+              {/* Subtle reflection overlay */}
+              <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-transparent via-white/5 to-transparent opacity-20" />
+            </div>
           </div>
         </div>
       </section>
@@ -288,7 +354,7 @@ for citation in investigation.evidence:
             <h2 className="text-3xl sm:text-4xl font-bold font-nebius text-[#031728]">
               Engineered from AST parser to verifiable agent loop
             </h2>
-            <p className="text-slate-600 text-base max-w-2xl">
+            <p className="text-slate-600 text-sm sm:text-base max-w-2xl">
               Six foundational pillars built for precision code navigation, autonomous reasoning, and enterprise scale.
             </p>
           </div>
@@ -609,14 +675,143 @@ for citation in investigation.evidence:
         </div>
       </section>
 
-      {/* 8. Bottom Call to Action: Start Your Journey (#052b42) */}
+      {/* 8. Get Started with RepoPilot Section (2-Column Grid with 5 Cards) */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white border-b border-slate-200">
+        <div className="max-w-7xl mx-auto space-y-10">
+          <div className="space-y-3 max-w-2xl">
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-500 font-nebius">
+              Onboarding & Resources
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-bold font-nebius text-[#031728]">
+              Get started with RepoPilot
+            </h2>
+            <p className="text-slate-600 text-sm sm:text-base">
+              Everything you need to try it, understand it, and get help along the way.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Card 1 */}
+            <div
+              onClick={onNavigateToConnect}
+              className="nebius-card p-6 sm:p-8 space-y-3 bg-white border border-slate-200/90 rounded-2xl hover:border-slate-300 transition-all shadow-xs cursor-pointer group flex flex-col justify-between"
+            >
+              <div className="space-y-2">
+                <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-800 border border-slate-200 mb-3">
+                  <FolderGit2 className="w-4 h-4 text-blue-600" />
+                </div>
+                <h3 className="text-base sm:text-lg font-bold font-nebius text-[#031728] group-hover:text-black">
+                  Connect a Public or Private Repository
+                </h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Link any Git repository over HTTPS or SSH. RepoPilot automatically clones the codebase into an isolated working directory and tracks branches.
+                </p>
+              </div>
+              <div className="pt-2 flex items-center gap-1.5 text-xs font-bold text-[#031728] group-hover:translate-x-0.5 transition-transform">
+                <span>Connect repository</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </div>
+
+            {/* Card 2 */}
+            <div
+              onClick={onNavigateToDashboard}
+              className="nebius-card p-6 sm:p-8 space-y-3 bg-white border border-slate-200/90 rounded-2xl hover:border-slate-300 transition-all shadow-xs cursor-pointer group flex flex-col justify-between"
+            >
+              <div className="space-y-2">
+                <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-800 border border-slate-200 mb-3">
+                  <Code2 className="w-4 h-4 text-purple-600" />
+                </div>
+                <h3 className="text-base sm:text-lg font-bold font-nebius text-[#031728] group-hover:text-black">
+                  Build Deterministic AST Symbol Graphs
+                </h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Tree-sitter parses Python, JavaScript, and TypeScript into syntax nodes including classes, functions, and enclosing scopes with sub-second lookup.
+                </p>
+              </div>
+              <div className="pt-2 flex items-center gap-1.5 text-xs font-bold text-[#031728] group-hover:translate-x-0.5 transition-transform">
+                <span>Browse symbol tables</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </div>
+
+            {/* Card 3 */}
+            <div
+              onClick={onNavigateToDashboard}
+              className="nebius-card p-6 sm:p-8 space-y-3 bg-white border border-slate-200/90 rounded-2xl hover:border-slate-300 transition-all shadow-xs cursor-pointer group flex flex-col justify-between"
+            >
+              <div className="space-y-2">
+                <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-800 border border-slate-200 mb-3">
+                  <Database className="w-4 h-4 text-sky-600" />
+                </div>
+                <h3 className="text-base sm:text-lg font-bold font-nebius text-[#031728] group-hover:text-black">
+                  Semantic Retrieval with ChromaDB
+                </h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Generate vector embeddings for high-relevance code chunks with automatic commit-hash caching to eliminate redundant processing.
+                </p>
+              </div>
+              <div className="pt-2 flex items-center gap-1.5 text-xs font-bold text-[#031728] group-hover:translate-x-0.5 transition-transform">
+                <span>View vector index</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </div>
+
+            {/* Card 4 */}
+            <div
+              onClick={onNavigateToAsk}
+              className="nebius-card p-6 sm:p-8 space-y-3 bg-white border border-slate-200/90 rounded-2xl hover:border-slate-300 transition-all shadow-xs cursor-pointer group flex flex-col justify-between"
+            >
+              <div className="space-y-2">
+                <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-800 border border-slate-200 mb-3">
+                  <Bot className="w-4 h-4 text-emerald-600" />
+                </div>
+                <h3 className="text-base sm:text-lg font-bold font-nebius text-[#031728] group-hover:text-black">
+                  Ask Questions with ReAct Citations
+                </h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Execute autonomous reasoning investigations with live step-by-step SSE streaming and verifiable line-bounded evidence direct from disk.
+                </p>
+              </div>
+              <div className="pt-2 flex items-center gap-1.5 text-xs font-bold text-[#031728] group-hover:translate-x-0.5 transition-transform">
+                <span>Launch assistant</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </div>
+
+            {/* Card 5 (Alone in its row in a 2-column grid) */}
+            <div
+              onClick={() => window.open('http://localhost:8000/docs', '_blank')}
+              className="nebius-card p-6 sm:p-8 space-y-3 bg-white border border-slate-200/90 rounded-2xl hover:border-slate-300 transition-all shadow-xs cursor-pointer group flex flex-col justify-between"
+            >
+              <div className="space-y-2">
+                <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-800 border border-slate-200 mb-3">
+                  <Terminal className="w-4 h-4 text-amber-600" />
+                </div>
+                <h3 className="text-base sm:text-lg font-bold font-nebius text-[#031728] group-hover:text-black">
+                  Integrate via Python Client & REST API
+                </h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Leverage FastAPI REST endpoints or the lightweight repopilot Python client to automate codebase analysis in your CI/CD workflows.
+                </p>
+              </div>
+              <div className="pt-2 flex items-center gap-1.5 text-xs font-bold text-[#031728] group-hover:translate-x-0.5 transition-transform">
+                <span>Explore OpenAPI docs</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 9. Bottom Call to Action: Start Your Journey (#052b42) */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[#052b42] text-white">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
           <div className="space-y-3 max-w-xl">
             <h2 className="text-3xl sm:text-4xl font-bold font-nebius text-white">
               Start your codebase investigation
             </h2>
-            <p className="text-slate-300 text-base leading-relaxed">
+            <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
               Connect any Git repository in seconds. Parse Tree-sitter AST symbols and ask complex
               architectural questions with verifiable line citations.
             </p>
@@ -639,6 +834,90 @@ for citation in investigation.evidence:
           </div>
         </div>
       </section>
+
+      {/* Register Account Modal */}
+      {showRegisterModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative space-y-6 text-[#031728]">
+            <button
+              onClick={() => setShowRegisterModal(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#D2FE22]/20 border border-[#D2FE22] text-xs font-bold text-slate-900 uppercase tracking-wider">
+                <Lock className="w-3.5 h-3.5 text-black" />
+                Register Account
+              </div>
+              <h3 className="text-2xl font-bold text-[#031728]">
+                Get started with RepoPilot
+              </h3>
+              <p className="text-xs text-slate-500">
+                Create an account to save indexed repositories, search history, and deep AST symbol call-chains.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRegisterModal(false)
+                  onNavigateToAsk()
+                }}
+                className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl border border-slate-300 hover:bg-slate-50 text-sm font-semibold text-slate-800 transition-all cursor-pointer"
+              >
+                <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                  <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                </svg>
+                <span>Continue with GitHub</span>
+              </button>
+
+              <div className="relative flex items-center justify-center text-xs text-slate-400">
+                <span className="border-t border-slate-200 w-full" />
+                <span className="bg-white px-3 shrink-0">or with email</span>
+                <span className="border-t border-slate-200 w-full" />
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Work Email</label>
+                  <input
+                    type="email"
+                    placeholder="developer@company.com"
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-black"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Password</label>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-black"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200/60 text-xs text-amber-800 leading-relaxed">
+                <strong>Preview Mode:</strong> Authentication is currently placeholder UI. All codebase indexing and AI assistant features are immediately accessible without registration!
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRegisterModal(false)
+                  onNavigateToAsk()
+                }}
+                className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#031728] hover:bg-[#072440] text-white text-sm font-semibold transition-all cursor-pointer shadow-sm"
+              >
+                <span>Continue to Workspace</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

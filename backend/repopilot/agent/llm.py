@@ -121,13 +121,50 @@ class MockLLMClient(BaseLLMClient):
                 tool_args={"file_path": file_to_read, "start_line": start_l, "end_line": end_l},
             )
 
-        # Final step: synthesize answer
+        # Final step: synthesize answer with narrow per-claim citations
+        cited_file = "src/auth/service.py"
+        cited_start = 8
+        cited_end = 12
+        for am in reversed(messages):
+            if am.get("role") == "assistant" and am.get("tool_calls"):
+                for tc in am["tool_calls"]:
+                    if tc.get("function", {}).get("name") == "read_file_slice":
+                        try:
+                            args = json.loads(tc["function"].get("arguments", "{}"))
+                            if "file_path" in args:
+                                cited_file = args["file_path"]
+                                orig_s = int(args.get("start_line", 1))
+                                orig_e = int(args.get("end_line", orig_s + 10))
+                                # Pick a narrow sub-range (e.g. 2 to 4 lines) inside the inspected slice
+                                if (orig_e - orig_s) > 3:
+                                    cited_start = orig_s + 2
+                                    cited_end = min(orig_e, orig_s + 5)
+                                else:
+                                    cited_start = orig_s
+                                    cited_end = orig_e
+                        except Exception:
+                            pass
+                        break
+
+        citations_json = json.dumps(
+            [
+                {
+                    "file_path": cited_file,
+                    "start_line": cited_start,
+                    "end_line": cited_end,
+                    "claim": f"Verification logic in {cited_file} enforces core validation rules.",
+                    "symbol_name": "validate_token",
+                }
+            ],
+            indent=2,
+        )
+
         return LLMStepResult(
             content=(
                 "Based on my investigation of the codebase:\n\n"
                 "The requested logic is implemented in the repository. "
                 "The components interact cleanly through standard configurations.\n\n"
-                "Evidence cited from inspected files."
+                f"```citations\n{citations_json}\n```"
             ),
             is_tool_call=False,
             finish_reason="stop",
@@ -140,7 +177,7 @@ class GeminiLLMClient(BaseLLMClient):
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model_name: str = "gemini-3.6-flash",
+        model_name: str = "gemini-3.7-flash",
     ) -> None:
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
         self.model_name = model_name

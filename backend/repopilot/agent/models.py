@@ -33,6 +33,10 @@ class EvidenceCitation(BaseModel):
         default=None,
         description="Explanation of why this snippet answers or supports the query.",
     )
+    claim: Optional[str] = Field(
+        default=None,
+        description="The specific assertion or claim backed by this citation.",
+    )
 
 
 class AgentStep(BaseModel):

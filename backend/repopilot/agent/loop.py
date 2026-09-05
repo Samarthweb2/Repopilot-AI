@@ -11,16 +11,40 @@ from repopilot.agent.llm import BaseLLMClient, LLMStepResult, get_llm_client
 from repopilot.agent.models import AgentStep, EvidenceCitation, QueryResponse
 from repopilot.tools.code_tools import TOOL_DEFINITIONS, CodebaseTools
 
+import re
+
 logger = logging.getLogger("repopilot.agent.loop")
 
 SYSTEM_PROMPT = """You are RepoPilot, an autonomous Senior Codebase Assistant.
 Your mission is to thoroughly investigate and answer questions about this repository using verifiable code evidence.
 
+AVAILABLE TOOLS:
+- search_code(query): Semantic search over code chunks.
+- lookup_symbol(symbol_name, exact): AST symbol table lookup.
+- read_file_slice(file_path, start_line, end_line): Read exact line ranges from disk (max 200 lines).
+- list_directory(directory): List repository directories and files.
+- get_references(symbol_name): Text-based reverse lookup finding all call sites of a symbol across indexed chunks.
+- git_blame(file_path, start_line, end_line): Git commit history and authorship per line.
+- grep(pattern, file_glob): Regex or text search across repository files (capped at 50 matches).
+
 WORKFLOW GUIDELINES:
-1. Discover with search_code: If you do not know the exact file or symbol name, search semantically for key concepts, functions, or algorithms.
-2. Target with lookup_symbol: If you need an exact function, class, or method declaration, look it up in the AST index.
-3. Verify with read_file_slice: ALWAYS read the actual lines of code from disk to verify how the code works before forming your conclusions. Never guess or hallucinate code implementations.
-4. Synthesize with citations: In your final answer, explain the architecture, mechanisms, and edge cases clearly. Reference the exact file paths and line numbers that prove your answer.
+1. Discover with search_code or grep: Find relevant functions, classes, and logic.
+2. Target with lookup_symbol or get_references: Find declarations and all call sites.
+3. Verify with read_file_slice: ALWAYS read actual lines from disk before concluding.
+4. History with git_blame: Inspect when and why logic changed if asked about history.
+5. Synthesize with per-claim citations: At the end of your final answer, provide specific, narrow citations paired per-claim. Each citation must target the exact, narrow line range (e.g. 2-10 lines) that directly backs an individual assertion or claim, not the entire broad file slice read during investigation.
+Format citations at the end of your response using:
+```citations
+[
+  {
+    "file_path": "path/to/file.py",
+    "start_line": 10,
+    "end_line": 15,
+    "claim": "Specific assertion supported by these lines",
+    "symbol_name": "optional_symbol_name"
+  }
+]
+```
 """
 
 
@@ -39,53 +63,123 @@ class AgentLoop:
         self.tools = tools or CodebaseTools(repo_id=self.repo_id, target_dir=self.target_dir)
         self.llm_client = llm_client or get_llm_client()
 
-    def _extract_evidence(self, steps: List[AgentStep]) -> List[EvidenceCitation]:
-        """Extract structured EvidenceCitation records from tool observation history."""
+    def _read_disk_snippet(self, file_path: str, start_line: int, end_line: int) -> str:
+        """Helper to read exact lines from disk for evidence snippets."""
+        full_path = self.target_dir / file_path.lstrip("/\\")
+        if full_path.exists() and full_path.is_file():
+            try:
+                with open(full_path, "r", encoding="utf-8", errors="replace") as f:
+                    lines = f.readlines()
+                selected = lines[max(0, start_line - 1) : min(len(lines), end_line)]
+                return "".join(selected).strip()
+            except Exception:
+                pass
+        return ""
+
+    def _extract_evidence(
+        self, answer_text: str, steps: List[AgentStep]
+    ) -> tuple[str, List[EvidenceCitation]]:
+        """Extract structured EvidenceCitation records paired per-claim or from tool history.
+
+        Returns (cleaned_answer_text, citations_list).
+        """
         evidence: List[EvidenceCitation] = []
         seen_ranges = set()
+        clean_answer = answer_text
 
-        # 1. Prioritize files explicitly read via read_file_slice
-        for step in steps:
-            if step.tool_name == "read_file_slice":
-                file_path = step.tool_input.get("file_path", "")
-                start_line = int(step.tool_input.get("start_line", 1))
-                end_line = int(step.tool_input.get("end_line", 1))
+        # 1. Attempt to parse per-claim JSON citations block from answer_text
+        citations_match = re.search(
+            r"```(?:citations|json)?\s*(\[\s*\{.*?\}\s*\])\s*```",
+            answer_text,
+            re.DOTALL | re.IGNORECASE,
+        )
+        if citations_match:
+            raw_json = citations_match.group(1)
+            try:
+                items = json.loads(raw_json)
+                if isinstance(items, list):
+                    for item in items:
+                        if isinstance(item, dict) and "file_path" in item:
+                            fpath = str(item["file_path"])
+                            s_line = int(item.get("start_line", 1))
+                            e_line = int(item.get("end_line", s_line))
+                            claim = str(item.get("claim") or item.get("relevance_explanation") or "")
+                            sym = item.get("symbol_name")
 
-                key = (file_path, start_line, end_line)
-                if key in seen_ranges:
-                    continue
-                seen_ranges.add(key)
+                            key = (fpath, s_line, e_line)
+                            if key not in seen_ranges:
+                                seen_ranges.add(key)
+                                snippet = self._read_disk_snippet(fpath, s_line, e_line)
+                                evidence.append(
+                                    EvidenceCitation(
+                                        file_path=fpath,
+                                        start_line=s_line,
+                                        end_line=e_line,
+                                        symbol_name=sym,
+                                        code_snippet=snippet or f"(Cited lines {s_line}-{e_line})",
+                                        relevance_explanation=claim or f"Claim evidence from {fpath}:{s_line}-{e_line}",
+                                        claim=claim or None,
+                                    )
+                                )
+                    # Strip raw citations block from user-facing answer text
+                    clean_answer = answer_text[: citations_match.start()].rstrip()
+            except Exception as e:
+                logger.debug("Could not parse structured citations block as JSON: %s", e)
 
-                # Extract snippet from repo disk
-                full_path = self.target_dir / file_path.lstrip("/\\")
-                snippet = ""
-                if full_path.exists() and full_path.is_file():
-                    try:
-                        with open(full_path, "r", encoding="utf-8", errors="replace") as f:
-                            lines = f.readlines()
-                        selected = lines[max(0, start_line - 1) : min(len(lines), end_line)]
-                        snippet = "".join(selected).strip()
-                    except Exception:
-                        snippet = step.observation
-
-                evidence.append(
-                    EvidenceCitation(
-                        file_path=file_path,
-                        start_line=start_line,
-                        end_line=end_line,
-                        code_snippet=snippet or step.observation[:300],
-                        relevance_explanation=f"Inspected in Step {step.step_number} to verify logic.",
+        # 2. Attempt to parse markdown citation list if no JSON citations parsed
+        if not evidence:
+            md_matches = re.findall(
+                r"(?:^|\n)\s*[-*]\s+`?([a-zA-Z0-9_./\\-]+):(\d+)-(\d+)`?\s*[:\-–—]\s*(.+)",
+                answer_text,
+            )
+            for fpath, s_str, e_str, claim_text in md_matches:
+                s_line, e_line = int(s_str), int(e_str)
+                key = (fpath, s_line, e_line)
+                if key not in seen_ranges:
+                    seen_ranges.add(key)
+                    snippet = self._read_disk_snippet(fpath, s_line, e_line)
+                    evidence.append(
+                        EvidenceCitation(
+                            file_path=fpath,
+                            start_line=s_line,
+                            end_line=e_line,
+                            code_snippet=snippet or f"(Cited lines {s_line}-{e_line})",
+                            relevance_explanation=claim_text.strip(),
+                            claim=claim_text.strip(),
+                        )
                     )
-                )
 
-        # 2. If no read_file_slice was called, extract from search_code observations
+        # 3. Fallback: If no per-claim citations found, fall back to tool observation history
+        if not evidence:
+            for step in steps:
+                if step.tool_name == "read_file_slice":
+                    file_path = step.tool_input.get("file_path", "")
+                    start_line = int(step.tool_input.get("start_line", 1))
+                    end_line = int(step.tool_input.get("end_line", 1))
+
+                    key = (file_path, start_line, end_line)
+                    if key in seen_ranges:
+                        continue
+                    seen_ranges.add(key)
+
+                    snippet = self._read_disk_snippet(file_path, start_line, end_line)
+                    evidence.append(
+                        EvidenceCitation(
+                            file_path=file_path,
+                            start_line=start_line,
+                            end_line=end_line,
+                            code_snippet=snippet or step.observation[:300],
+                            relevance_explanation=f"Inspected in Step {step.step_number} to verify logic.",
+                        )
+                    )
+
+        # 4. Final fallback to search_code observations if no read_file_slice
         if not evidence:
             for step in steps:
                 if step.tool_name == "search_code":
                     obs = step.observation
                     for line in obs.splitlines():
                         if "File:" in line and "Symbol:" in line:
-                            # Format: [1] File: requests/adapters.py:280-320 | Symbol: HTTPAdapter.send
                             try:
                                 file_part = line.split("File:")[1].split("|")[0].strip()
                                 sym_part = line.split("Symbol:")[1].split("|")[0].strip()
@@ -112,7 +206,7 @@ class AgentLoop:
                     if evidence:
                         break
 
-        return evidence
+        return clean_answer, evidence
 
     async def run(self, query: str, max_steps: int = 6) -> QueryResponse:
         """Run the multi-step investigation loop to answer the query."""
@@ -200,8 +294,14 @@ class AgentLoop:
                     "role": "user",
                     "content": (
                         "You have reached your maximum allocated investigation steps. "
-                        "Synthesize your final answer now based on the code evidence and observations you have gathered. "
-                        "Explicitly cite the file paths and line ranges you inspected."
+                        "Synthesize your final answer now based on the code evidence and observations you have gathered.\n"
+                        "Output format: Provide your detailed technical explanation. At the end, include a ```citations block containing a JSON array of per-claim citations with narrow, specific line ranges:\n"
+                        "```citations\n"
+                        "[\n"
+                        '  {"file_path": "file/path.py", "start_line": 10, "end_line": 15, "claim": "Specific claim description", "symbol_name": "optional_symbol"}\n'
+                        "]\n"
+                        "```\n"
+                        "Ensure each citation points to the specific lines backing that assertion (not the entire file slice)."
                     ),
                 }
             )
@@ -211,8 +311,8 @@ class AgentLoop:
             except Exception as e:
                 final_answer = f"Investigation concluded at step limit ({max_steps} steps). LLM synthesis note: {str(e)}"
 
-        # Compile structured evidence citations
-        evidence = self._extract_evidence(steps)
+        # Compile structured evidence citations (paired per-claim or from tool history)
+        final_answer, evidence = self._extract_evidence(final_answer, steps)
 
         return QueryResponse(
             repo_id=self.repo_id,

@@ -1,6 +1,7 @@
 """Automated unit and integration tests for Phase 4: Agent Tools, ReAct Loop, and Ask API."""
 
 import asyncio
+import json
 import shutil
 import tempfile
 from pathlib import Path
@@ -402,3 +403,238 @@ def test_api_ask_end_to_end(client, tmp_path, monkeypatch):
 
     finally:
         app.dependency_overrides.clear()
+
+
+def test_tool_get_references_multiple_callers(tmp_path):
+    """Test get_references discovers call-sites across multiple callers without counting definition."""
+    auth_dir = tmp_path / "src" / "auth"
+    api_dir = tmp_path / "src" / "api"
+    auth_dir.mkdir(parents=True, exist_ok=True)
+    api_dir.mkdir(parents=True, exist_ok=True)
+
+    auth_code = (
+        "\"\"\"Auth module.\"\"\"\n\n"
+        "def authenticate_user(token: str) -> bool:\n"
+        "    \"\"\"Check credentials.\"\"\"\n"
+        "    return token == 'valid'\n"
+    )
+    (auth_dir / "service.py").write_text(auth_code, encoding="utf-8")
+
+    routes_code = (
+        "\"\"\"Routes module.\"\"\"\n"
+        "from src.auth.service import authenticate_user\n\n"
+        "def login_handler(request):\n"
+        "    \"\"\"Handle login.\"\"\"\n"
+        "    ok = authenticate_user(request.token)\n"
+        "    return {'status': ok}\n\n"
+        "def refresh_handler(request):\n"
+        "    \"\"\"Handle token refresh.\"\"\"\n"
+        "    if authenticate_user(request.token):\n"
+        "        return {'token': 'new'}\n"
+        "    return {'error': 'unauthorized'}\n"
+    )
+    (api_dir / "routes.py").write_text(routes_code, encoding="utf-8")
+
+    from repopilot.indexing.parser import CodeParser
+
+    parser = CodeParser()
+    ingestor = RepoIngestor()
+    files = ingestor.walk_and_filter(tmp_path)
+    chunks, st = parser.parse_repo(tmp_path, files)
+
+    tools = CodebaseTools(repo_id="test_ref_repo", target_dir=tmp_path, symbol_table=st)
+
+    # 1. Look up authenticate_user references
+    result = tools.get_references("authenticate_user")
+
+    assert "Found 2 reference(s) to 'authenticate_user'" in result
+    assert "login_handler" in result
+    assert "refresh_handler" in result
+    assert "src/api/routes.py" in result
+    # The definition line inside service.py should NOT be counted as a reference
+    assert "def authenticate_user" not in result
+
+    # 2. Error handling and unknown symbols
+    assert tools.get_references("") == "Error: symbol_name cannot be empty."
+    assert "No call-site references found" in tools.get_references("unknown_function_xyz")
+
+
+def test_tool_git_blame_commit_metadata(tmp_path):
+    """Test git_blame returns commit hash, author, date, and commit message per line."""
+    repo = git.Repo.init(tmp_path)
+    config_file = tmp_path / "config.py"
+
+    # Commit 1 by Alice
+    config_file.write_text(
+        "# Server Configuration\nPORT = 8080\nDEBUG = True\n",
+        encoding="utf-8",
+    )
+    repo.index.add(["config.py"])
+    author_alice = git.Actor("Alice", "alice@example.com")
+    repo.index.commit("Initial server configuration", author=author_alice, committer=author_alice)
+
+    # Commit 2 by Bob
+    config_file.write_text(
+        "# Server Configuration\nPORT = 8080\nDEBUG = True\nTIMEOUT = 60\nRETRIES = 5\n",
+        encoding="utf-8",
+    )
+    repo.index.add(["config.py"])
+    author_bob = git.Actor("Bob", "bob@example.com")
+    repo.index.commit("Add timeout and retry limits", author=author_bob, committer=author_bob)
+
+    tools = CodebaseTools(repo_id="test_blame_repo", target_dir=tmp_path)
+
+    # Blame lines 1 through 5
+    blame_res = tools.git_blame("config.py", start_line=1, end_line=5)
+
+    assert "Git blame for 'config.py' (lines 1-5)" in blame_res
+    assert "Alice" in blame_res
+    assert "Bob" in blame_res
+    assert "Initial server configuration" in blame_res
+    assert "Add timeout and retry limits" in blame_res
+    assert "PORT = 8080" in blame_res
+    assert "RETRIES = 5" in blame_res
+
+    # Test error and security cases
+    traversal_err = tools.git_blame("../outside.py", 1, 10)
+    assert "Error: Access denied" in traversal_err
+
+    missing_err = tools.git_blame("nonexistent.py", 1, 10)
+    assert "does not exist in repository" in missing_err
+
+    invalid_range = tools.git_blame("config.py", 10, 5)
+    assert "cannot be less than start_line" in invalid_range
+
+
+def test_tool_grep_cap_and_path_guards(tmp_path):
+    """Test grep respects 50 results cap, path traversal guards, and file globs."""
+    # Create file with 65 matching lines
+    target_file = tmp_path / "data.py"
+    lines = [f"item_{i} = 'PAYLOAD_FLAG_{i}'" for i in range(65)]
+    target_file.write_text("\n".join(lines), encoding="utf-8")
+
+    # Create secret file
+    secret_file = tmp_path / "secret.env"
+    secret_file.write_text("API_SECRET_TOKEN=xyz987\n", encoding="utf-8")
+
+    tools = CodebaseTools(repo_id="test_grep_repo", target_dir=tmp_path)
+
+    # 1. Path traversal in file_glob must be blocked
+    traversal_res = tools.grep("PAYLOAD_FLAG", file_glob="../**")
+    assert "Error: Access denied" in traversal_res
+
+    traversal_res2 = tools.grep("PAYLOAD_FLAG", file_glob="/etc/*")
+    assert "Error: Access denied" in traversal_res2
+
+    # 2. Results capped at 50
+    cap_res = tools.grep("PAYLOAD_FLAG")
+    assert "Found 50 match(es)" in cap_res
+    assert "Results capped at 50 matches" in cap_res
+
+    # 3. File glob filtering
+    glob_res = tools.grep("API_SECRET_TOKEN", file_glob="*.env")
+    assert "Found 1 match(es)" in glob_res
+    assert "API_SECRET_TOKEN=xyz987" in glob_res
+
+    no_glob_match = tools.grep("API_SECRET_TOKEN", file_glob="*.py")
+    assert "No matches found" in no_glob_match
+
+    # 4. Empty pattern
+    assert tools.grep("") == "Error: pattern cannot be empty."
+
+
+def test_synthesis_per_claim_citation_granularity(tmp_path):
+    """Test that final synthesis produces per-claim citations narrower than the investigated slices."""
+    # Create a 60-line source file
+    service_code = [
+        "\"\"\"Transaction processing service.\"\"\"",
+        "import hashlib",
+        "import os",
+        "import sys",
+    ]
+    # Lines 5 to 20: boilerplate
+    for i in range(5, 21):
+        service_code.append(f"# Boilerplate setup line {i}")
+
+    # Lines 21 to 25: critical assertion lines
+    service_code.extend([
+        "def verify_checksum(payload: bytes, expected_hash: str) -> bool:",
+        "    \"\"\"Verify SHA-256 payload integrity.\"\"\"",
+        "    computed = hashlib.sha256(payload).hexdigest()",
+        "    return computed == expected_hash",
+    ])
+
+    # Lines 26 to 60: post-processing
+    for i in range(26, 61):
+        service_code.append(f"# Post-processing routine line {i}")
+
+    svc_path = tmp_path / "service.py"
+    svc_path.write_text("\n".join(service_code), encoding="utf-8")
+
+    # Mock an investigation where read_file_slice investigated lines 1 to 50 (50 lines broad)
+    # and the model synthesized a specific per-claim citation for lines 21 to 24 (4 lines narrow).
+    scripted_client = MockLLMClient()
+    # Step 1: Tool call reading lines 1 to 50
+    scripted_client.add_step(
+        LLMStepResult(
+            content="I need to inspect the service implementation.",
+            is_tool_call=True,
+            tool_name="read_file_slice",
+            tool_args={"file_path": "service.py", "start_line": 1, "end_line": 50},
+        )
+    )
+    # Step 2: Final synthesis with a narrow per-claim citation (lines 21-24)
+    citations_block = json.dumps(
+        [
+            {
+                "file_path": "service.py",
+                "start_line": 21,
+                "end_line": 24,
+                "claim": "Payload integrity is verified by comparing the computed SHA-256 digest with expected_hash.",
+                "symbol_name": "verify_checksum",
+            }
+        ]
+    )
+    scripted_client.add_step(
+        LLMStepResult(
+            content=(
+                "Based on the repository investigation:\n\n"
+                "The verify_checksum function validates payloads using SHA-256 digests.\n\n"
+                f"```citations\n{citations_block}\n```"
+            ),
+            is_tool_call=False,
+            finish_reason="stop",
+        )
+    )
+
+    tools = CodebaseTools(repo_id="test_granularity_repo", target_dir=tmp_path)
+    agent = AgentLoop(
+        repo_id="test_granularity_repo",
+        target_dir=tmp_path,
+        tools=tools,
+        llm_client=scripted_client,
+    )
+
+    response = asyncio.run(agent.run(query="How is payload integrity verified?", max_steps=4))
+
+    assert response.completed is True
+    assert len(response.evidence) == 1
+
+    ev = response.evidence[0]
+    assert ev.file_path == "service.py"
+    assert ev.start_line == 21
+    assert ev.end_line == 24
+    assert ev.claim == "Payload integrity is verified by comparing the computed SHA-256 digest with expected_hash."
+    assert "verify_checksum" in ev.code_snippet
+    assert "hashlib.sha256" in ev.code_snippet
+
+    # Verify granularity: cited span is strictly narrower than the investigated tool slice
+    investigated_slice_span = 50 - 1 + 1  # 50 lines
+    cited_span = ev.end_line - ev.start_line + 1  # 4 lines
+    assert cited_span < investigated_slice_span
+    assert cited_span <= 10
+
+    # Verify that raw JSON citations block was stripped from clean answer
+    assert "```citations" not in response.answer
+    assert "The verify_checksum function validates payloads using SHA-256 digests." in response.answer
+

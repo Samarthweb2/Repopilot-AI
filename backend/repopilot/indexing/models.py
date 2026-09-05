@@ -87,6 +87,18 @@ class SymbolTable:
         """Return list of all registered symbol names."""
         return sorted(self._table.keys())
 
+    def get_all_chunks(self) -> List[CodeChunk]:
+        """Return all registered CodeChunks across all symbols."""
+        seen = set()
+        unique_chunks: List[CodeChunk] = []
+        for chunks in self._table.values():
+            for chunk in chunks:
+                key = (chunk.file_path, chunk.start_line, chunk.end_line, chunk.symbol_name)
+                if key not in seen:
+                    seen.add(key)
+                    unique_chunks.append(chunk)
+        return unique_chunks
+
     def to_dict(self) -> Dict[str, List[dict]]:
         """Serialize symbol table to dictionary representation."""
         return {

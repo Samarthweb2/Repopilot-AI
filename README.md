@@ -27,11 +27,11 @@ The system operates across four coordinated stages:
    - Employs commit-hash caching to skip re-indexing unchanged repositories.
 
 4. **Phase 4: Autonomous Agent and Evidence Synthesis**
-   - Orchestrates a ReAct (Reasoning and Acting) investigation loop with tool-calling.
-   - Equips the agent with four tools: `search_code`, `lookup_symbol`, `read_file_slice`, and `list_directory`.
+   - Orchestrates a ReAct (Reasoning and Acting) investigation loop with multi-tool calling.
+   - Equips the agent with seven tools: `search_code`, `lookup_symbol`, `read_file_slice`, `list_directory`, `get_references`, `git_blame`, and `grep`.
    - Protects against directory traversal and limits file slice sizes.
    - Enforces a hard step limit to prevent infinite loops.
-   - Extracts structured evidence citations directly from verified source files on disk.
+   - Extracts structured per-claim evidence citations with narrow line ranges directly from verified source files on disk.
 
 ---
 

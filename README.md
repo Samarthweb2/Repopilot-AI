@@ -224,6 +224,10 @@ The system works out of the box with built-in mock and local providers. For prod
 
 This repository includes a `render.yaml` blueprint for one-click deployment on Render.
 
+### Live Deployment
+
+- Frontend Application: `https://repopilot-ui-uy96.onrender.com/` (or your configured `https://repopilot-frontend-*.onrender.com`)
+
 ### Method 1: Using Render Blueprint (Recommended)
 
 1. Push your repository to GitHub.
@@ -232,7 +236,7 @@ This repository includes a `render.yaml` blueprint for one-click deployment on R
 4. Connect your GitHub repository (`Repopilot-AI`).
 5. Render detects `render.yaml` and provisions two services:
    - `repopilot-api`: Python web service running FastAPI and Uvicorn.
-   - `repopilot-ui`: Static site building the React frontend with Vite.
+   - `repopilot-frontend`: Static site building the React frontend with Vite.
 6. In the Render dashboard, navigate to `repopilot-api` -> **Environment** and add your API keys:
    - `GEMINI_API_KEY`: Your Google Gemini API key
    - `OPENAI_API_KEY` (optional): Your OpenAI API key
@@ -252,6 +256,7 @@ If you prefer to configure services individually in Render:
   - `REPOPILOT_LLM_PROVIDER`: `gemini`
 
 #### 2. Frontend Static Site:
+- **Service Name**: `repopilot-frontend`
 - **Root Directory**: `frontend`
 - **Build Command**: `npm install && npm run build`
 - **Publish Directory**: `dist`

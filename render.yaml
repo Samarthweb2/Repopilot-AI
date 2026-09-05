@@ -18,7 +18,7 @@ services:
 
   # Frontend Static Site
   - type: web
-    name: repopilot-ui
+    name: repopilot-frontend
     runtime: static
     rootDir: frontend
     buildCommand: npm install && npm run build

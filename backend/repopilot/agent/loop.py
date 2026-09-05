@@ -159,22 +159,24 @@ class AgentLoop:
 
                 # Append to messages history in standard function-calling format
                 call_id = f"call_{step_num}_{tool_name}"
-                messages.append(
-                    {
-                        "role": "assistant",
-                        "content": thought or "",
-                        "tool_calls": [
-                            {
-                                "id": call_id,
-                                "type": "function",
-                                "function": {
-                                    "name": tool_name,
-                                    "arguments": json.dumps(tool_args),
-                                },
-                            }
-                        ],
-                    }
-                )
+                assistant_msg: Dict[str, Any] = {
+                    "role": "assistant",
+                    "content": thought or "",
+                    "tool_calls": [
+                        {
+                            "id": call_id,
+                            "type": "function",
+                            "function": {
+                                "name": tool_name,
+                                "arguments": json.dumps(tool_args),
+                            },
+                        }
+                    ],
+                }
+                # Preserve raw provider response (e.g. Gemini thought_signature)
+                if result.raw_response:
+                    assistant_msg["_raw_gemini_content"] = result.raw_response
+                messages.append(assistant_msg)
                 messages.append(
                     {
                         "role": "tool",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -35,6 +36,10 @@ class LLMStepResult(BaseModel):
     finish_reason: Optional[str] = Field(
         default=None,
         description="Finish reason returned by the model API (e.g. 'stop', 'tool_calls').",
+    )
+    raw_response: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Provider-specific raw content object to echo back verbatim (e.g. Gemini thought_signature).",
     )
 
 
@@ -135,7 +140,7 @@ class GeminiLLMClient(BaseLLMClient):
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model_name: str = "gemini-2.5-flash",
+        model_name: str = "gemini-3.6-flash",
     ) -> None:
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
         self.model_name = model_name
@@ -157,7 +162,14 @@ class GeminiLLMClient(BaseLLMClient):
     def _convert_messages_to_gemini(
         self, messages: List[Dict[str, Any]]
     ) -> tuple[Optional[Dict[str, Any]], List[Dict[str, Any]]]:
-        """Convert standard messages to Gemini system_instruction and contents format."""
+        """Convert standard messages to Gemini system_instruction and contents format.
+
+        When an assistant message carries a ``_raw_gemini_content`` key (the
+        verbatim ``content`` object from a prior Gemini response), it is echoed
+        back unchanged.  This preserves opaque fields such as
+        ``thought_signature`` that Gemini 3.x requires for multi-turn function
+        calling.
+        """
         system_instruction = None
         contents = []
 
@@ -170,26 +182,32 @@ class GeminiLLMClient(BaseLLMClient):
             elif role == "user":
                 contents.append({"role": "user", "parts": [{"text": str(content)}]})
             elif role == "assistant":
-                parts = []
-                if content:
-                    parts.append({"text": str(content)})
-                if msg.get("tool_calls"):
-                    for tc in msg["tool_calls"]:
-                        func = tc.get("function", {})
-                        parts.append(
-                            {
-                                "functionCall": {
-                                    "name": func.get("name"),
-                                    "args": (
-                                        json.loads(func.get("arguments", "{}"))
-                                        if isinstance(func.get("arguments"), str)
-                                        else func.get("arguments", {})
-                                    ),
+                # If the raw Gemini content object is available, use it
+                # verbatim so that thought_signature is preserved.
+                raw = msg.get("_raw_gemini_content")
+                if raw:
+                    contents.append(raw)
+                else:
+                    parts = []
+                    if content:
+                        parts.append({"text": str(content)})
+                    if msg.get("tool_calls"):
+                        for tc in msg["tool_calls"]:
+                            func = tc.get("function", {})
+                            parts.append(
+                                {
+                                    "functionCall": {
+                                        "name": func.get("name"),
+                                        "args": (
+                                            json.loads(func.get("arguments", "{}"))
+                                            if isinstance(func.get("arguments"), str)
+                                            else func.get("arguments", {})
+                                        ),
+                                    }
                                 }
-                            }
-                        )
-                if parts:
-                    contents.append({"role": "model", "parts": parts})
+                            )
+                    if parts:
+                        contents.append({"role": "model", "parts": parts})
             elif role == "tool":
                 # Function response in Gemini
                 name = msg.get("name", "tool")
@@ -229,12 +247,29 @@ class GeminiLLMClient(BaseLLMClient):
         if gemini_tools:
             payload["tools"] = gemini_tools
 
-        async with httpx.AsyncClient(timeout=45.0) as client:
-            resp = await client.post(url, json=payload)
-            if resp.status_code != 200:
-                raise RuntimeError(
-                    f"Gemini API error ({resp.status_code}): {resp.text}"
-                )
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            max_retries = 3
+            for attempt in range(max_retries):
+                resp = await client.post(url, json=payload)
+                if resp.status_code in (429, 503) and attempt < max_retries - 1:
+                    wait = 4 * (attempt + 1)
+                    if resp.status_code == 429:
+                        try:
+                            err = resp.json()
+                            for d in err.get("error", {}).get("details", []):
+                                if "retryDelay" in d:
+                                    delay_str = d["retryDelay"].rstrip("s")
+                                    wait = float(delay_str) + 1
+                        except Exception:
+                            pass
+                    logger.info("Gemini %d response. Retrying in %.1fs (attempt %d/%d)", resp.status_code, wait, attempt + 1, max_retries)
+                    await asyncio.sleep(wait)
+                    continue
+                if resp.status_code != 200:
+                    raise RuntimeError(
+                        f"Gemini API error ({resp.status_code}): {resp.text}"
+                    )
+                break
 
             data = resp.json()
 
@@ -242,6 +277,8 @@ class GeminiLLMClient(BaseLLMClient):
             candidate = data.get("candidates", [])[0]
             content_obj = candidate.get("content", {})
             parts = content_obj.get("parts", [])
+
+            logger.debug("Gemini response parts: %s", [list(p.keys()) for p in parts])
 
             text_parts = []
             for part in parts:
@@ -253,12 +290,27 @@ class GeminiLLMClient(BaseLLMClient):
                         tool_name=fc.get("name"),
                         tool_args=fc.get("args", {}),
                         finish_reason="tool_calls",
+                        raw_response=content_obj,
                     )
                 elif "text" in part:
                     text_parts.append(part["text"])
+                elif "thought" in part:
+                    # Gemini 3.x thinking models emit thought parts;
+                    # skip them for the primary answer but keep as fallback.
+                    pass
+
+            final_text = " ".join(text_parts).strip()
+
+            # If model returned only thought parts with no text, extract
+            # thought content as a last resort so the answer isn't empty.
+            if not final_text:
+                thought_parts = [p["thought"] for p in parts if "thought" in p and p["thought"]]
+                if thought_parts:
+                    final_text = " ".join(thought_parts).strip()
+                    logger.debug("Using thought content as fallback answer (%d chars)", len(final_text))
 
             return LLMStepResult(
-                content=" ".join(text_parts).strip(),
+                content=final_text,
                 is_tool_call=False,
                 finish_reason=candidate.get("finishReason", "stop"),
             )
@@ -360,7 +412,7 @@ def get_llm_client(
         return MockLLMClient()
 
     if provider == "gemini" or (not provider and os.environ.get("GEMINI_API_KEY")):
-        model = model_name or os.environ.get("REPOPILOT_LLM_MODEL", "gemini-2.5-flash")
+        model = model_name or os.environ.get("REPOPILOT_LLM_MODEL", "gemini-3.7-flash")
         return GeminiLLMClient(model_name=model)
 
     if provider == "openai" or (not provider and os.environ.get("OPENAI_API_KEY")):

@@ -177,5 +177,5 @@ The system works out of the box with built-in mock and local providers. For prod
 | `OPENAI_API_KEY` | OpenAI API key for agent reasoning / embeddings | None |
 | `VOYAGE_API_KEY` | Voyage AI key for code embeddings | None |
 | `REPOPILOT_LLM_PROVIDER` | Preferred LLM provider (`gemini`, `openai`, `mock`) | Auto-detected |
-| `REPOPILOT_LLM_MODEL` | Specific model name (e.g., `gemini-2.5-flash`, `gpt-4o-mini`) | Provider default |
+| `REPOPILOT_LLM_MODEL` | Specific model name (e.g., `gemini-3.7-flash`, `gpt-4o-mini`) | Provider default |
 | `EMBEDDING_PROVIDER` | Preferred embedding model (`openai`, `voyage`, `local_onnx`, `mock`) | Auto-detected |

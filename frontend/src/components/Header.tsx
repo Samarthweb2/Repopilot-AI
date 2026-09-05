@@ -14,8 +14,8 @@ import {
 } from 'lucide-react'
 
 interface HeaderProps {
-  activeTab: 'connect' | 'dashboard' | 'ask'
-  setActiveTab: (tab: 'connect' | 'dashboard' | 'ask') => void
+  activeTab: 'landing' | 'connect' | 'dashboard' | 'ask'
+  setActiveTab: (tab: 'landing' | 'connect' | 'dashboard' | 'ask') => void
   repos: RepoSummary[]
   activeRepoId: string | null
   setActiveRepoId: (repoId: string) => void
@@ -37,7 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Left: Nebius-style Logo Badge */}
         <div className="flex items-center gap-6">
           <div
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => setActiveTab('landing')}
             className="cursor-pointer flex items-center gap-2 group"
           >
             <div className="nebius-logo-badge text-sm sm:text-base font-black px-3 py-1 tracking-tight">
@@ -47,6 +47,18 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Primary Nav Links */}
           <nav className="hidden lg:flex items-center gap-6 text-xs sm:text-sm font-medium text-slate-700">
+            <button
+              id="nav-overview"
+              onClick={() => setActiveTab('landing')}
+              className={`hover:text-black transition-colors pb-0.5 cursor-pointer ${
+                activeTab === 'landing'
+                  ? 'text-black font-bold border-b-2 border-black'
+                  : 'text-slate-600'
+              }`}
+            >
+              Overview
+            </button>
+
             <button
               id="nav-dashboard"
               onClick={() => setActiveTab('dashboard')}
@@ -120,15 +132,23 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           )}
 
+          {/* Launch App CTA Button */}
+          <button
+            onClick={() => setActiveTab('ask')}
+            className="cursor-pointer inline-flex items-center gap-1.5 bg-[#031728] text-white hover:bg-[#072440] text-xs font-semibold px-4 py-1.5 rounded-full transition-all shadow-sm"
+          >
+            <span>Launch App</span>
+          </button>
+
           {/* FastAPI Docs Link Pill */}
           <a
             href="http://localhost:8000/docs"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden md:inline-flex items-center gap-1.5 bg-[#031728] text-white hover:bg-[#072440] text-xs font-semibold px-4 py-1.5 rounded-full transition-all"
+            className="hidden md:inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold px-3 py-1.5 rounded-full transition-all border border-slate-200"
           >
             <span>Docs</span>
-            <ExternalLink className="w-3 h-3" />
+            <ExternalLink className="w-3 h-3 text-slate-500" />
           </a>
 
           {/* Backend Online Pill */}

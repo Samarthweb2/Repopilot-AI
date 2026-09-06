@@ -182,41 +182,67 @@ export function App() {
       )}
 
       {/* Nebius Minimalist Footer */}
-      <footer className="border-t border-slate-200 bg-white py-8 text-xs text-slate-600 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div onClick={() => setActiveTab('landing')} className="cursor-pointer">
-              <RepoPilotLogo size="sm" />
-            </div>
-            <span className="text-slate-300">|</span>
-            <span>Autonomous Code Intelligence Platform</span>
-          </div>
-
-          <div className="flex items-center gap-4 text-slate-500 font-medium">
-            <button
-              onClick={() => setActiveTab('landing')}
-              className="hover:text-black cursor-pointer"
+      <footer className="border-t border-slate-200/80 bg-white py-8 text-xs sm:text-sm text-slate-700 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
+          <div className="flex flex-wrap items-center gap-x-6 sm:gap-x-8 gap-y-2">
+            <a
+              href="http://localhost:8000/docs"
+              target="_blank"
+              rel="noreferrer"
+              className="text-slate-700 hover:text-black transition-colors"
             >
-              Overview
-            </button>
-            <span>•</span>
+              RepoPilot AI Cloud Docs
+            </a>
             <button
               onClick={handleNavigateToDashboard}
-              className="hover:text-black cursor-pointer"
+              className="text-slate-700 hover:text-black transition-colors cursor-pointer"
             >
-              Repositories
+              Token Factory Docs
             </button>
-            <span>•</span>
-            <button
-              onClick={() => handleNavigateToAsk()}
-              className="hover:text-black cursor-pointer"
+            <div className="flex items-center gap-1.5 text-slate-700">
+              <span className={`w-2 h-2 rounded-full inline-block ${backendHealthy ? 'bg-emerald-500' : 'bg-red-500'}`} />
+              <span>Status</span>
+            </div>
+            <a
+              href="https://github.com/Samarthweb2/Repopilot-AI"
+              target="_blank"
+              rel="noreferrer"
+              className="text-slate-700 hover:text-black transition-colors"
             >
-              Ask Assistant
-            </button>
-            <span>•</span>
-            <span>Tree-sitter AST</span>
-            <span>•</span>
-            <span>ChromaDB Vector Store</span>
+              GitHub
+            </a>
+            <a
+              href="https://discord.com"
+              target="_blank"
+              rel="noreferrer"
+              className="text-slate-700 hover:text-black transition-colors"
+            >
+              Discord
+            </a>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault()
+                setActiveTab('landing')
+              }}
+              className="text-slate-700 hover:text-black transition-colors"
+            >
+              Blog
+            </a>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault()
+                alert('Security Policy: 100% local AST parsing with strict path-traversal safeguards and offline test verification.')
+              }}
+              className="text-slate-700 hover:text-black transition-colors"
+            >
+              Security
+            </a>
+          </div>
+
+          <div className="text-slate-500 text-xs sm:text-sm shrink-0">
+            © 2026 RepoPilot AI.
           </div>
         </div>
       </footer>

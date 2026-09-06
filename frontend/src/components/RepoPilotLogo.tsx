@@ -80,11 +80,11 @@ export const RepoPilotLogo: React.FC<RepoPilotLogoProps> = ({
   const textFillColor = textColor || (variant === 'dark' ? '#031728' : variant === 'white' ? '#FFFFFF' : '#E5C800')
 
   const dimensions = {
-    xs: { iconSize: 20, fontSize: 'text-[11px]', gap: 'gap-0', flourishW: 42 },
-    sm: { iconSize: 24, fontSize: 'text-xs', gap: 'gap-0', flourishW: 50 },
-    md: { iconSize: 32, fontSize: 'text-sm sm:text-base', gap: 'gap-0.5', flourishW: 65 },
-    lg: { iconSize: 46, fontSize: 'text-lg sm:text-xl', gap: 'gap-1', flourishW: 85 },
-    xl: { iconSize: 64, fontSize: 'text-2xl sm:text-3xl', gap: 'gap-1.5', flourishW: 110 },
+    xs: { iconSize: 28, fontSize: 'text-xs', gap: 'gap-0.5', flourishW: 56 },
+    sm: { iconSize: 36, fontSize: 'text-sm sm:text-base', gap: 'gap-0.5', flourishW: 72 },
+    md: { iconSize: 48, fontSize: 'text-lg sm:text-xl', gap: 'gap-1', flourishW: 96 },
+    lg: { iconSize: 68, fontSize: 'text-2xl sm:text-3xl', gap: 'gap-1.5', flourishW: 130 },
+    xl: { iconSize: 96, fontSize: 'text-4xl sm:text-5xl', gap: 'gap-2', flourishW: 180 },
   }[size]
 
   return (

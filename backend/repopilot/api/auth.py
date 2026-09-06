@@ -423,7 +423,18 @@ def _exchange_google_code(code: str, redirect_uri: Optional[str] = None) -> Opti
         logger.warning("GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not set; cannot exchange OAuth code.")
         return None
 
-    candidate_uris = [u for u in [redirect_uri, "postmessage", GOOGLE_REDIRECT_URI, "http://localhost:5173/oauth/callback", "https://repopilot-frontend.onrender.com/oauth/callback"] if u]
+    candidate_uris = [
+        u
+        for u in [
+            redirect_uri,
+            "postmessage",
+            GOOGLE_REDIRECT_URI,
+            "http://localhost:5173/oauth/callback",
+            "https://repopilot-frontend-5md.onrender.com/oauth/callback",
+            "https://repopilot-frontend.onrender.com/oauth/callback",
+        ]
+        if u
+    ]
     unique_uris = list(dict.fromkeys(candidate_uris))
 
     for r_uri in unique_uris:

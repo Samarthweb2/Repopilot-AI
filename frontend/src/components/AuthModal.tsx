@@ -40,8 +40,22 @@ export function AuthModal({ onAuthSuccess }: AuthModalProps = {}) {
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [socialLoading, setSocialLoading] = useState<'google' | 'github' | null>(null)
+  const [slowServerWarning, setSlowServerWarning] = useState(false)
   const emailInputRef = useRef<HTMLInputElement>(null)
   const googleBtnContainerRef = useRef<HTMLDivElement>(null)
+
+  // Cold start reassurance timer
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>
+    if (isSubmitting || socialLoading) {
+      timer = setTimeout(() => {
+        setSlowServerWarning(true)
+      }, 1800)
+    } else {
+      setSlowServerWarning(false)
+    }
+    return () => clearTimeout(timer)
+  }, [isSubmitting, socialLoading])
 
   // Initialize Google Identity Services inside the modal
   useEffect(() => {
@@ -240,6 +254,14 @@ export function AuthModal({ onAuthSuccess }: AuthModalProps = {}) {
             <div className="flex items-start gap-2.5 p-3 bg-red-50 border border-red-200 rounded-xl text-xs sm:text-sm text-red-700 animate-fadeIn">
               <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-red-500" />
               <span className="leading-snug">{activeError}</span>
+            </div>
+          )}
+
+          {/* Cold Start Banner */}
+          {slowServerWarning && !activeError && (
+            <div className="flex items-center gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 animate-fadeIn">
+              <Loader2 className="w-4 h-4 animate-spin text-amber-600 shrink-0" />
+              <span>Backend server is waking up on Render (~20-30s). Connecting securely...</span>
             </div>
           )}
 

@@ -59,8 +59,8 @@ EXCLUDED_EXTENSIONS: Set[str] = {
     ".woff", ".woff2", ".ttf", ".eot", ".otf",
     # Database files
     ".db", ".sqlite", ".sqlite3",
-    # Lockfiles
-    ".lock",
+    # Lockfiles & Source maps
+    ".lock", ".map",
 }
 
 # Exact lockfile names to ignore regardless of extension
@@ -256,7 +256,7 @@ class RepoIngestor:
                 if lower_filename in EXCLUDED_LOCKFILES:
                     continue
 
-                if filename.startswith("."):
+                if filename.startswith(".") or lower_filename.endswith(".min.js") or lower_filename.endswith(".min.css") or lower_filename.endswith(".bundle.js") or lower_filename.endswith(".chunk.js"):
                     continue
 
                 file_path = Path(root) / filename

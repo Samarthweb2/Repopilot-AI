@@ -85,7 +85,7 @@ export const ConnectRepoView: React.FC<ConnectRepoViewProps> = ({
       const res = await indexRepo(connectedRepo.repo_id, forceIndex)
       setIndexResult(res)
 
-      if (res.status === 'completed') {
+      if (res.status === 'completed' || res.status === 'indexed') {
         confetti({
           particleCount: 80,
           spread: 70,
@@ -99,7 +99,7 @@ export const ConnectRepoView: React.FC<ConnectRepoViewProps> = ({
         branch: connectedRepo.branch,
         commit_hash: connectedRepo.commit_hash,
         file_count: connectedRepo.file_count,
-        is_indexed: res.status === 'completed' || res.status === 'skipped',
+        is_indexed: res.status === 'completed' || res.status === 'indexed' || res.status === 'skipped',
         indexed_chunks: res.chunks_count,
         status: res.status,
       })
@@ -363,14 +363,14 @@ export const ConnectRepoView: React.FC<ConnectRepoViewProps> = ({
               <div
                 id="index-status-feedback"
                 className={`p-4 rounded-xl border text-sm flex items-start gap-3 animate-fadeIn ${
-                  indexResult.status === 'completed'
+                  indexResult.status === 'completed' || indexResult.status === 'indexed'
                     ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
                     : indexResult.status === 'skipped'
                     ? 'bg-amber-50 border-amber-200 text-amber-900'
                     : 'bg-red-50 border-red-200 text-red-900'
                 }`}
               >
-                {indexResult.status === 'completed' && (
+                {(indexResult.status === 'completed' || indexResult.status === 'indexed') && (
                   <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                 )}
                 {indexResult.status === 'skipped' && (

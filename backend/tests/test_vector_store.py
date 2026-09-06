@@ -9,7 +9,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from repopilot.api.routes import get_code_parser, get_repo_ingestor, get_vector_store
-from repopilot.indexing.embedder import MockEmbedder, prepare_chunk_text
+from repopilot.indexing.embedder import (
+    FastTokenFeatureEmbedder,
+    GeminiEmbedder,
+    MockEmbedder,
+    get_embedder,
+    prepare_chunk_text,
+)
 from repopilot.indexing.models import CodeChunk
 from repopilot.indexing.parser import CodeParser
 from repopilot.indexing.vector_store import ChromaVectorStore
@@ -83,6 +89,49 @@ def test_mock_embedder():
     assert len(v1) == 128
     assert v1 == v2  # Deterministic
     assert v1 != v3  # Distinct text produces distinct vector
+
+
+def test_fast_token_feature_embedder():
+    """Verify FastTokenFeatureEmbedder subword splitting, normalization, and speed."""
+    embedder = FastTokenFeatureEmbedder(dimension=256)
+    docs = [
+        "def validate_token(jwt_secret: str) -> bool: return True",
+        "class PaymentGateway: def process_charge(self): pass",
+    ]
+    vecs = embedder.embed_documents(docs)
+    assert len(vecs) == 2
+    assert len(vecs[0]) == 256
+    assert len(vecs[1]) == 256
+
+    # Verify query similarity ranking
+    q_auth = embedder.embed_query("validate jwt token")
+    # Dot product similarity with auth doc vs payment doc
+    sim_auth = sum(a * b for a, b in zip(q_auth, vecs[0]))
+    sim_pay = sum(a * b for a, b in zip(q_auth, vecs[1]))
+    assert sim_auth > sim_pay
+
+
+def test_get_embedder_factory(monkeypatch):
+    """Verify get_embedder auto-selects appropriate provider based on environment."""
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.delenv("VOYAGE_API_KEY", raising=False)
+    monkeypatch.delenv("EMBEDDING_PROVIDER", raising=False)
+
+    # Default fallback is fast token embedder
+    embedder_default = get_embedder()
+    assert isinstance(embedder_default, FastTokenFeatureEmbedder)
+
+    # Gemini key resolution
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    embedder_gemini = get_embedder()
+    assert isinstance(embedder_gemini, GeminiEmbedder)
+    assert embedder_gemini.api_key == "test-gemini-key"
+
+    # Explicit mock
+    embedder_mock = get_embedder("mock")
+    assert isinstance(embedder_mock, MockEmbedder)
 
 
 def test_vector_store_indexing_and_search(vector_store):

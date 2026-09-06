@@ -202,15 +202,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // Verify session with backend /auth/me
-    apiFetch<UserProfile>('/auth/me')
+    // Verify session with backend /auth/me with timeout protection
+    apiFetch<UserProfile>('/auth/me', { signal: AbortSignal.timeout(8000) })
       .then((verifiedUser) => {
         const currentToken = localStorage.getItem(STORAGE_TOKEN_KEY) || 'cookie_session'
         persistSession(currentToken, verifiedUser)
       })
-      .catch(() => {
-        // If cookie and token are missing or expired
-        clearSession()
+      .catch((err) => {
+        // Only clear session if backend explicitly rejected the token with 401
+        if (err?.message?.includes('401') || err?.message?.includes('Invalid') || err?.message?.includes('expired')) {
+          clearSession()
+        }
       })
       .finally(() => {
         setIsLoading(false)

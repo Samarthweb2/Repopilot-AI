@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from typing import List, Optional
@@ -126,7 +127,7 @@ async def create_or_update_repo(
 ) -> RepoStatus:
     """Clones or updates a Git repository, walks the filtered file tree, and returns repository metadata."""
     try:
-        status_result = ingestor.ingest(repo_url=request.repo_url, branch=request.branch)
+        status_result = await asyncio.to_thread(ingestor.ingest, repo_url=request.repo_url, branch=request.branch)
         return status_result
     except InvalidRepoURLError as e:
         logger.warning("Invalid repo URL requested: %s", e)
@@ -207,12 +208,13 @@ async def index_repo(
         )
 
     try:
-        # Phase 1 files -> Phase 2 AST chunks
-        files = ingestor.walk_and_filter(target_dir)
-        chunks, symbol_table = parser.parse_repo(target_dir, files)
+        # Phase 1 files -> Phase 2 AST chunks (run in worker thread to prevent event loop block)
+        files = await asyncio.to_thread(ingestor.walk_and_filter, target_dir)
+        chunks, symbol_table = await asyncio.to_thread(parser.parse_repo, target_dir, files)
 
-        # Phase 2 AST chunks -> Phase 3 Vector embeddings
-        indexing_result = vector_store.index_repository(
+        # Phase 2 AST chunks -> Phase 3 Vector embeddings (run in worker thread)
+        indexing_result = await asyncio.to_thread(
+            vector_store.index_repository,
             repo_id=repo_id,
             commit_hash=commit_hash,
             chunks=chunks,
@@ -258,7 +260,7 @@ async def search_repo(
         )
 
     try:
-        matches = vector_store.search(query=query, repo_id=repo_id, limit=limit)
+        matches = await asyncio.to_thread(vector_store.search, query=query, repo_id=repo_id, limit=limit)
         return matches
     except Exception as e:
         logger.exception("Error executing search on repo %s: %s", repo_id, e)

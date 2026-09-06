@@ -186,10 +186,9 @@ export function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div onClick={() => setActiveTab('landing')} className="cursor-pointer">
-              <RepoPilotLogo size="sm" showTag={false} />
+              <RepoPilotLogo size="sm" />
             </div>
-            <span className="font-semibold text-slate-900">RepoPilot AI</span>
-            <span>—</span>
+            <span className="text-slate-300">|</span>
             <span>Autonomous Code Intelligence Platform</span>
           </div>
 

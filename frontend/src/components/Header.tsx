@@ -55,7 +55,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setActiveTab('landing')}
             className="cursor-pointer flex items-center gap-2 group"
           >
-            <RepoPilotLogo size="md" showTag={true} />
+            <RepoPilotLogo size="md" />
           </div>
         </div>
 

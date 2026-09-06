@@ -2,120 +2,108 @@ import React from 'react'
 
 interface RepoPilotLogoProps {
   className?: string
-  size?: 'sm' | 'md' | 'lg'
-  variant?: 'badge' | 'mark-only' | 'text-only' | 'plain'
-  showTag?: boolean
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+  showText?: boolean
+  variant?: 'yellow' | 'lime' | 'dark' | 'white'
+  textColor?: string
+}
+
+/**
+ * Precision Hexagon 'R' Logo Emblem (Vector SVG)
+ * Accurately modeled after the authentic Hexagon 'R' emblem in signature yellow.
+ */
+export const HexagonREmblem: React.FC<{
+  className?: string
+  size?: number | string
+  color?: string
+  strokeColor?: string
+}> = ({
+  className = '',
+  size = 32,
+  color = '#FFE600', // Signature vibrant yellow
+  strokeColor,
+}) => {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 100 100"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={`shrink-0 transition-transform duration-200 ${className}`}
+      style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.06))' }}
+    >
+      {/* Precision Geometric Hexagon with aerodynamic negative-space R cutout */}
+      <path
+        d="M 31.2 14.0
+           L 68.2 14.0
+           L 88.5 45.1
+           L 71.5 74.0
+           L 53.5 74.0
+           L 49.0 63.8
+           C 54.5 63.0 61.5 58.5 65.5 51.5
+           C 69.2 45.0 69.0 35.5 63.5 28.5
+           C 57.5 21.0 48.0 21.0 42.5 28.0
+           L 21.5 63.8
+           L 11.5 45.1
+           L 31.2 14.0 Z"
+        fill={color}
+        stroke={strokeColor || 'none'}
+        strokeWidth={strokeColor ? 1.5 : 0}
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
 }
 
 export const RepoPilotLogo: React.FC<RepoPilotLogoProps> = ({
   className = '',
   size = 'md',
-  variant = 'badge',
-  showTag = false,
+  showText = true,
+  variant = 'yellow',
+  textColor,
 }) => {
-  // Size mapping
-  const sizeClasses = {
-    sm: {
-      badge: 'px-2.5 py-1 rounded-lg gap-1.5',
-      icon: 'w-4 h-4',
-      text: 'text-xs tracking-tight font-black',
-      tag: 'text-[8px] px-1 py-0.2',
-    },
-    md: {
-      badge: 'px-3.5 py-1.5 rounded-xl gap-2',
-      icon: 'w-5 h-5',
-      text: 'text-sm sm:text-[15px] tracking-tight font-black',
-      tag: 'text-[9px] px-1.5 py-0.5',
-    },
-    lg: {
-      badge: 'px-5 py-2.5 rounded-2xl gap-2.5',
-      icon: 'w-7 h-7',
-      text: 'text-lg sm:text-xl tracking-tight font-black',
-      tag: 'text-[10px] px-2 py-0.5',
-    },
+  const colorMap = {
+    yellow: '#FFE600', // Vibrant Electric Yellow
+    lime: '#D2FE22',   // Signature Lime-Yellow
+    dark: '#031728',   // Deep Navy
+    white: '#FFFFFF',  // Pure White
+  }
+
+  const emblemColor = colorMap[variant] || colorMap.yellow
+
+  const dimensions = {
+    xs: { iconSize: 20, fontSize: 'text-xs', gap: 'gap-1.5' },
+    sm: { iconSize: 24, fontSize: 'text-sm', gap: 'gap-2' },
+    md: { iconSize: 32, fontSize: 'text-base sm:text-lg', gap: 'gap-2.5' },
+    lg: { iconSize: 40, fontSize: 'text-xl sm:text-2xl', gap: 'gap-3' },
+    xl: { iconSize: 52, fontSize: 'text-3xl sm:text-4xl', gap: 'gap-3.5' },
   }[size]
 
-  // Bespoke Geometric RepoPilot Brand Mark:
-  // Combines Code Branch + Supersonic Pilot Stealth Delta + AST Node
-  const BrandIcon = ({ iconClass = 'w-5 h-5' }: { iconClass?: string }) => (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={`${iconClass} shrink-0`}
-      aria-label="RepoPilot Logomark"
-    >
-      {/* Left Code Branch Bracket */}
-      <path
-        d="M 8.5 4.5 L 3.5 12 L 8.5 19.5"
-        stroke="currentColor"
-        strokeWidth="2.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Forward Pilot Delta Chevron */}
-      <path
-        d="M 10 7.5 L 17 12 L 10 16.5 L 12.5 12 Z"
-        fill="currentColor"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinejoin="round"
-      />
-      {/* AST Core Node Point */}
-      <circle cx="19.5" cy="12" r="1.75" fill="currentColor" />
-    </svg>
-  )
-
-  if (variant === 'mark-only') {
-    return (
-      <div className={`inline-flex items-center justify-center ${className}`}>
-        <BrandIcon iconClass={sizeClasses.icon} />
-      </div>
-    )
-  }
-
-  if (variant === 'text-only') {
-    return (
-      <span
-        className={`font-['Space_Grotesk',sans-serif] font-black tracking-tighter text-[#031728] ${sizeClasses.text} ${className}`}
-      >
-        REPOPILOT
-      </span>
-    )
-  }
-
-  if (variant === 'plain') {
-    return (
-      <div className={`inline-flex items-center gap-2 text-[#031728] ${className}`}>
-        <div className="w-7 h-7 rounded-lg bg-[#D2FE22] text-[#031728] flex items-center justify-center shadow-xs">
-          <BrandIcon iconClass="w-4 h-4" />
-        </div>
-        <span className={`font-['Space_Grotesk',sans-serif] font-black tracking-tight ${sizeClasses.text}`}>
-          REPOPILOT
-        </span>
-        {showTag && (
-          <span className={`rounded font-bold bg-[#031728] text-[#D2FE22] ${sizeClasses.tag}`}>
-            AI
-          </span>
-        )}
-      </div>
-    )
-  }
-
-  // Default: Signature Nebius Lime Pill Badge
   return (
     <div
-      className={`repopilot-logo-badge inline-flex items-center select-none bg-[#D2FE22] text-[#031728] border border-black/10 shadow-xs hover:shadow-[0_0_16px_rgba(210,254,34,0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer ${sizeClasses.badge} ${className}`}
+      className={`inline-flex items-center select-none group cursor-pointer ${dimensions.gap} ${className}`}
     >
-      <BrandIcon iconClass={sizeClasses.icon} />
-      <span className={`font-['Space_Grotesk',sans-serif] font-black tracking-tight uppercase leading-none ${sizeClasses.text}`}>
-        REPOPILOT
-      </span>
-      {showTag && (
-        <span className={`rounded-full font-bold bg-black/15 text-[#031728] ${sizeClasses.tag}`}>
-          AI
-        </span>
+      {/* The Yellow Hexagon 'R' Emblem */}
+      <div className="relative flex items-center justify-center transition-transform duration-200 group-hover:scale-105 group-active:scale-95">
+        <HexagonREmblem size={dimensions.iconSize} color={emblemColor} />
+      </div>
+
+      {/* Accompanying Wordmark */}
+      {showText && (
+        <div className="flex items-center leading-none">
+          <span
+            className={`font-['Space_Grotesk',sans-serif] font-black tracking-tight uppercase ${dimensions.fontSize} ${
+              textColor || 'text-[#031728]'
+            }`}
+            style={{ letterSpacing: '-0.03em' }}
+          >
+            Repo<span className="text-[#031728]">Pilot</span>
+          </span>
+        </div>
       )}
     </div>
   )
 }
+
+export default RepoPilotLogo

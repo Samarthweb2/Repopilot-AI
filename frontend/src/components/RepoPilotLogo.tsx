@@ -6,6 +6,7 @@ interface RepoPilotLogoProps {
   showText?: boolean
   variant?: 'yellow' | 'lime' | 'dark' | 'white'
   textColor?: string
+  text?: string
 }
 
 /**
@@ -31,7 +32,7 @@ export const HexagonREmblem: React.FC<{
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={`shrink-0 transition-transform duration-200 ${className}`}
-      style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.06))' }}
+      style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.08))' }}
     >
       {/* Precision Geometric Hexagon with aerodynamic negative-space R cutout */}
       <path
@@ -56,12 +57,17 @@ export const HexagonREmblem: React.FC<{
   )
 }
 
+/**
+ * RepoPilot Logo: Vertical Stack (Hexagon UP, RepoPilot DOWN)
+ * Features the signature handwritten / brush script typography from the inspirational image.
+ */
 export const RepoPilotLogo: React.FC<RepoPilotLogoProps> = ({
   className = '',
   size = 'md',
   showText = true,
   variant = 'yellow',
   textColor,
+  text = 'RepoPilot',
 }) => {
   const colorMap = {
     yellow: '#FFE600', // Vibrant Electric Yellow
@@ -71,35 +77,55 @@ export const RepoPilotLogo: React.FC<RepoPilotLogoProps> = ({
   }
 
   const emblemColor = colorMap[variant] || colorMap.yellow
+  const textFillColor = textColor || (variant === 'dark' ? '#031728' : variant === 'white' ? '#FFFFFF' : '#E5C800')
 
   const dimensions = {
-    xs: { iconSize: 20, fontSize: 'text-xs', gap: 'gap-1.5' },
-    sm: { iconSize: 24, fontSize: 'text-sm', gap: 'gap-2' },
-    md: { iconSize: 32, fontSize: 'text-base sm:text-lg', gap: 'gap-2.5' },
-    lg: { iconSize: 40, fontSize: 'text-xl sm:text-2xl', gap: 'gap-3' },
-    xl: { iconSize: 52, fontSize: 'text-3xl sm:text-4xl', gap: 'gap-3.5' },
+    xs: { iconSize: 20, fontSize: 'text-[11px]', gap: 'gap-0', flourishW: 42 },
+    sm: { iconSize: 24, fontSize: 'text-xs', gap: 'gap-0', flourishW: 50 },
+    md: { iconSize: 32, fontSize: 'text-sm sm:text-base', gap: 'gap-0.5', flourishW: 65 },
+    lg: { iconSize: 46, fontSize: 'text-lg sm:text-xl', gap: 'gap-1', flourishW: 85 },
+    xl: { iconSize: 64, fontSize: 'text-2xl sm:text-3xl', gap: 'gap-1.5', flourishW: 110 },
   }[size]
 
   return (
     <div
-      className={`inline-flex items-center select-none group cursor-pointer ${dimensions.gap} ${className}`}
+      className={`inline-flex flex-col items-center justify-center select-none group cursor-pointer ${dimensions.gap} ${className}`}
     >
-      {/* The Yellow Hexagon 'R' Emblem */}
+      {/* 1. Hexagon Logo UP */}
       <div className="relative flex items-center justify-center transition-transform duration-200 group-hover:scale-105 group-active:scale-95">
         <HexagonREmblem size={dimensions.iconSize} color={emblemColor} />
       </div>
 
-      {/* Accompanying Wordmark */}
+      {/* 2. RepoPilot Text DOWN in authentic handwritten script style */}
       {showText && (
-        <div className="flex items-center leading-none">
+        <div className="relative flex flex-col items-center justify-center leading-none">
           <span
-            className={`font-['Space_Grotesk',sans-serif] font-black tracking-tight uppercase ${dimensions.fontSize} ${
-              textColor || 'text-[#031728]'
-            }`}
-            style={{ letterSpacing: '-0.03em' }}
+            className={`font-['Caveat',cursive] font-bold tracking-tight text-center ${dimensions.fontSize}`}
+            style={{
+              color: textFillColor,
+              textShadow: '0 0.5px 1px rgba(0,0,0,0.25)',
+              transform: 'rotate(-1.5deg)',
+              letterSpacing: '-0.01em',
+            }}
           >
-            Repo<span className="text-[#031728]">Pilot</span>
+            {text}
           </span>
+          {/* Subtle signature brush flourish stroke underneath */}
+          <svg
+            width={dimensions.flourishW}
+            height="5"
+            viewBox="0 0 100 8"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="opacity-70 -mt-0.5"
+          >
+            <path
+              d="M 5 4 Q 50 7 95 2"
+              stroke={emblemColor}
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
         </div>
       )}
     </div>

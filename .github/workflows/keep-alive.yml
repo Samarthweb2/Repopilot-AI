@@ -12,4 +12,4 @@ jobs:
     steps:
       - name: Ping Repopilot Backend API Health Endpoint
         run: |
-          curl -s -f -m 35 "https://repopilot-api.onrender.com/health" || echo "Ping sent to wake server"
+          curl -s -f -m 35 "https://repopilot-api-20bm.onrender.com/health" || echo "Ping sent to wake server"

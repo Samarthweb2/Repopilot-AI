@@ -63,7 +63,7 @@ function getApiBase(): string {
   const raw = (import.meta.env.VITE_API_URL as string)?.trim() || ''
   if (!raw) {
     if (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')) {
-      return 'https://repopilot-api.onrender.com'
+      return 'https://repopilot-api-20bm.onrender.com'
     }
     return ''
   }

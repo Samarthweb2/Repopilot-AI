@@ -45,6 +45,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>
   signup: (name: string, email: string, password: string) => Promise<void>
   loginWithGoogle: () => Promise<void>
+  loginWithGoogleCredential: (credential: string) => Promise<void>
   loginWithGithub: () => Promise<void>
   logout: () => Promise<void>
   openAuthModal: (mode?: 'signin' | 'signup') => void
@@ -261,6 +262,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.href = googleAuthUrl
   }, [])
 
+  const loginWithGoogleCredential = useCallback(async (credential: string) => {
+    setAuthError(null)
+    setIsLoading(true)
+    try {
+      const data = await apiFetch<AuthTokenResponse>('/auth/google', {
+        method: 'POST',
+        body: JSON.stringify({
+          provider: 'google',
+          credential,
+        }),
+      })
+      persistSession(data.access_token, data.user)
+      setAuthModalMode(null)
+    } catch (err: any) {
+      setAuthError(err.message || 'Google authentication failed.')
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [persistSession])
+
   const loginWithGithub = useCallback(async () => {
     setAuthError(null)
     const data = await apiFetch<AuthTokenResponse>('/auth/github', {
@@ -307,6 +329,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         signup,
         loginWithGoogle,
+        loginWithGoogleCredential,
         loginWithGithub,
         logout,
         openAuthModal,

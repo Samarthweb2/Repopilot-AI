@@ -29,17 +29,17 @@
 /* Nebius Signature Hero Gradient & Grid Texture */
 .nebius-hero-container {
   position: relative;
-  background: linear-gradient(135deg, #D7F227 0%, #A3E635 100%);
+  background: linear-gradient(180deg, #bff652 0%, #d4fb50 50%, #e1ff4f 100%);
   overflow: hidden;
 }
 
-/* Subtle Grid Texture Overlay: 40px intervals, 4% black opacity, horizontal and vertical */
+/* Subtle Grid Texture Overlay: 40px intervals, 3.5% black opacity, horizontal and vertical */
 .nebius-hero-grid {
   position: absolute;
   inset: 0;
   background-image: 
-    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.04) 0px, rgba(0, 0, 0, 0.04) 1px, transparent 1px, transparent 40px),
-    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.04) 0px, rgba(0, 0, 0, 0.04) 1px, transparent 1px, transparent 40px);
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.035) 0px, rgba(0, 0, 0, 0.035) 1px, transparent 1px, transparent 40px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.035) 0px, rgba(0, 0, 0, 0.035) 1px, transparent 1px, transparent 40px);
   pointer-events: none;
 }
 

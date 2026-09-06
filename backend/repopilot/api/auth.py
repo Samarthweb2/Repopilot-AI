@@ -202,22 +202,6 @@ def _user_dict_to_response(user: dict) -> UserResponse:
     )
 
 
-# ─── Seed Demo Account ───────────────────────────────────────────────────────────
-
-if "demo@repopilot.ai" not in _USER_DB:
-    demo_hashed, demo_salt = _hash_password("repopilot123")
-    _USER_DB["demo@repopilot.ai"] = {
-        "id": "usr_demo_001",
-        "email": "demo@repopilot.ai",
-        "name": "Demo Developer",
-        "salt": demo_salt,
-        "password_hash": demo_hashed,
-        "avatar_url": "https://api.dicebear.com/7.x/initials/svg?seed=DD&backgroundColor=031728&textColor=d2fe22",
-        "provider": "demo",
-        "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-    }
-
-
 # ─── Models ──────────────────────────────────────────────────────────────────────
 
 class GoogleAuthUrlResponse(BaseModel):
@@ -324,38 +308,6 @@ async def login(payload: UserLoginRequest, request: Request, response: Response)
     token = _create_token(user["id"], email_clean)
     _set_session_cookie(response, token)
     logger.info(f"User signed in: {email_clean}")
-
-    return AuthTokenResponse(
-        access_token=token,
-        token_type="bearer",
-        user=_user_dict_to_response(user),
-    )
-
-
-@router.post(
-    "/demo",
-    response_model=AuthTokenResponse,
-)
-async def demo_login(response: Response):
-    """Log in instantly with the official Demo Developer account for preview testing."""
-    user = _USER_DB.get("demo@repopilot.ai")
-    if not user:
-        demo_hashed, demo_salt = _hash_password("repopilot123")
-        user = {
-            "id": "usr_demo_001",
-            "email": "demo@repopilot.ai",
-            "name": "Demo Developer",
-            "salt": demo_salt,
-            "password_hash": demo_hashed,
-            "avatar_url": "https://api.dicebear.com/7.x/initials/svg?seed=DD&backgroundColor=031728&textColor=d2fe22",
-            "provider": "demo",
-            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        }
-        _USER_DB["demo@repopilot.ai"] = user
-
-    token = _create_token(user["id"], user["email"])
-    _set_session_cookie(response, token)
-    logger.info("Signed in via Demo account")
 
     return AuthTokenResponse(
         access_token=token,

@@ -88,22 +88,6 @@ def test_auth_rate_limiting(client):
     assert "Retry-After" in blocked_res.headers
 
 
-def test_demo_login_endpoint(client):
-    """Test instant demo login provides active session without fake Google branding."""
-    res = client.post("/auth/demo")
-    assert res.status_code == 200
-    data = res.json()
-    assert data["user"]["email"] == "demo@repopilot.ai"
-    assert data["user"]["name"] == "Demo Developer"
-    assert data["user"]["provider"] == "demo"
-    assert "repopilot_session" in res.cookies
-
-    # Verify session is active
-    me = client.get("/auth/me")
-    assert me.status_code == 200
-    assert me.json()["email"] == "demo@repopilot.ai"
-
-
 def test_google_oauth_endpoints(client):
     """Test Google OAuth URL and auth endpoints."""
     # Test /auth/google/url
@@ -127,8 +111,13 @@ def test_google_oauth_endpoints(client):
 
 def test_logout_clears_cookie_and_session(client):
     """Test logging out invalidates session and clears cookie."""
-    login_res = client.post("/auth/demo")
-    assert login_res.status_code == 200
+    reg_payload = {
+        "email": "logout.test@repopilot.ai",
+        "name": "Logout Tester",
+        "password": "securepassword123",
+    }
+    login_res = client.post("/auth/register", json=reg_payload)
+    assert login_res.status_code == 201
     assert "repopilot_session" in login_res.cookies
 
     # Log out

@@ -46,7 +46,6 @@ interface AuthContextValue {
   signup: (name: string, email: string, password: string) => Promise<void>
   loginWithGoogle: () => Promise<void>
   loginWithGithub: () => Promise<void>
-  loginWithDemo: () => Promise<void>
   logout: () => Promise<void>
   openAuthModal: (mode?: 'signin' | 'signup') => void
   closeAuthModal: () => void
@@ -299,15 +298,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthModalMode(null)
   }, [persistSession])
 
-  const loginWithDemo = useCallback(async () => {
-    setAuthError(null)
-    const data = await apiFetch<AuthTokenResponse>('/auth/demo', {
-      method: 'POST',
-    })
-    persistSession(data.access_token, data.user)
-    setAuthModalMode(null)
-  }, [persistSession])
-
   const logout = useCallback(async () => {
     try {
       await apiFetch('/auth/logout', {
@@ -341,7 +331,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signup,
         loginWithGoogle,
         loginWithGithub,
-        loginWithDemo,
         logout,
         openAuthModal,
         closeAuthModal,

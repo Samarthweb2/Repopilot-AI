@@ -13,7 +13,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../lib/AuthContext'
 import { HexagonREmblem } from './RepoPilotLogo'
-import { X, Eye, EyeOff, AlertCircle, Loader2, ArrowRight, Sparkles } from 'lucide-react'
+import { X, Eye, EyeOff, AlertCircle, Loader2, ArrowRight } from 'lucide-react'
 
 interface AuthModalProps {
   onAuthSuccess?: () => void
@@ -27,7 +27,6 @@ export function AuthModal({ onAuthSuccess }: AuthModalProps = {}) {
     signup,
     loginWithGoogle,
     loginWithGithub,
-    loginWithDemo,
     authError,
     setAuthError,
   } = useAuth()
@@ -39,7 +38,7 @@ export function AuthModal({ onAuthSuccess }: AuthModalProps = {}) {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [socialLoading, setSocialLoading] = useState<'google' | 'github' | 'demo' | null>(null)
+  const [socialLoading, setSocialLoading] = useState<'google' | 'github' | null>(null)
   const emailInputRef = useRef<HTMLInputElement>(null)
 
   // Sync internal mode when authModalMode changes
@@ -133,20 +132,6 @@ export function AuthModal({ onAuthSuccess }: AuthModalProps = {}) {
     }
   }
 
-  const handleDemoLogin = async () => {
-    setError(null)
-    setAuthError(null)
-    setSocialLoading('demo')
-    try {
-      await loginWithDemo()
-      onAuthSuccess?.()
-    } catch (err: any) {
-      setError(err.message || 'Demo sign-in failed.')
-    } finally {
-      setSocialLoading(null)
-    }
-  }
-
   const switchMode = () => {
     setMode(mode === 'signin' ? 'signup' : 'signin')
     setError(null)
@@ -204,29 +189,8 @@ export function AuthModal({ onAuthSuccess }: AuthModalProps = {}) {
             </div>
           )}
 
-          {/* Social & Demo Login Buttons */}
+          {/* Social Login Buttons */}
           <div className="space-y-2.5">
-            {/* Try with Demo Account Button */}
-            <button
-              type="button"
-              id="btn-auth-demo"
-              onClick={handleDemoLogin}
-              disabled={!!socialLoading || isSubmitting}
-              className="w-full flex items-center justify-between py-2.5 px-4 rounded-xl bg-[#D2FE22]/20 hover:bg-[#D2FE22]/35 border border-[#D2FE22] text-sm font-bold text-[#031728] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group"
-            >
-              <div className="flex items-center gap-2.5">
-                {socialLoading === 'demo' ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-[#031728]" />
-                ) : (
-                  <Sparkles className="w-4 h-4 text-[#031728]" />
-                )}
-                <span>Try with Demo Account</span>
-              </div>
-              <span className="px-2 py-0.5 rounded-full bg-[#031728] text-[#D2FE22] text-[10px] font-bold uppercase tracking-wider">
-                Instant Preview
-              </span>
-            </button>
-
             {/* Continue with Google */}
             <button
               type="button"

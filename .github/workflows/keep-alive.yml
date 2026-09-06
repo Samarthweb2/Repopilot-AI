@@ -1,0 +1,15 @@
+name: Keep Backend Warm
+
+on:
+  schedule:
+    # Runs every 10 minutes to prevent Render free tier container from sleeping (15 min inactivity timeout)
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping-health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Repopilot Backend API Health Endpoint
+        run: |
+          curl -s -f -m 35 "https://repopilot-api.onrender.com/health" || echo "Ping sent to wake server"

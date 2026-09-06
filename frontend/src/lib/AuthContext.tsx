@@ -175,6 +175,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (oauthCode) {
+      const currentOrigin = window.location.origin.replace(/\/+$/, '')
+      const redirectUri = `${currentOrigin}/oauth/callback`
       window.history.replaceState({}, document.title, window.location.pathname)
       setIsLoading(true)
       apiFetch<AuthTokenResponse>('/auth/google/callback', {
@@ -182,6 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({
           provider: 'google',
           code: oauthCode,
+          redirect_uri: redirectUri,
         }),
       })
         .then((data) => {
@@ -237,64 +240,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithGoogle = useCallback(async () => {
     setAuthError(null)
-    const googleClientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string)?.trim() || ''
+    const googleClientId =
+      (import.meta.env.VITE_GOOGLE_CLIENT_ID as string)?.trim() ||
+      '627317262267-ve5t8go34sckr81453hpvqroviennd2i.apps.googleusercontent.com'
 
-    // 1. If Google Identity Services SDK is loaded and Client ID is configured, open Google Account Chooser popup
-    if (googleClientId && window.google?.accounts?.oauth2) {
-      return new Promise<void>((resolve, reject) => {
-        try {
-          const client = window.google.accounts.oauth2.initCodeClient({
-            client_id: googleClientId,
-            scope: 'openid email profile',
-            ux_mode: 'popup',
-            callback: async (response: any) => {
-              if (response.error) {
-                const errMsg = response.error_description || response.error
-                setAuthError(`Google sign-in was cancelled or failed: ${errMsg}`)
-                reject(new Error(errMsg))
-                return
-              }
-              try {
-                const data = await apiFetch<AuthTokenResponse>('/auth/google/callback', {
-                  method: 'POST',
-                  body: JSON.stringify({
-                    provider: 'google',
-                    code: response.code,
-                  }),
-                })
-                persistSession(data.access_token, data.user)
-                setAuthModalMode(null)
-                resolve()
-              } catch (err: any) {
-                setAuthError(err.message || 'Google authentication failed.')
-                reject(err)
-              }
-            },
-          })
-          client.requestCode()
-        } catch (e: any) {
-          setAuthError(e.message || 'Failed to initialize Google sign-in.')
-          reject(e)
-        }
-      })
-    }
+    // Full in-window redirect flow: Opens Google in our own window, no popup window
+    const currentOrigin = window.location.origin.replace(/\/+$/, '')
+    const redirectUri = `${currentOrigin}/oauth/callback`
 
-    // 2. Check if backend has Google OAuth URL configured
-    try {
-      const urlInfo = await apiFetch<GoogleAuthUrlResponse>('/auth/google/url')
-      if (urlInfo.configured && urlInfo.url) {
-        window.location.href = urlInfo.url
-        return
-      }
-    } catch {
-      /* continue */
-    }
+    const params = new URLSearchParams({
+      client_id: googleClientId,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: 'openid email profile',
+      access_type: 'offline',
+      prompt: 'select_account',
+    })
 
-    // 3. If neither frontend nor backend has Google Client ID configured
-    throw new Error(
-      'Google OAuth Client ID is not configured yet. Please set GOOGLE_CLIENT_ID in your environment or use the Demo Account.'
-    )
-  }, [persistSession])
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
+    window.location.href = googleAuthUrl
+  }, [])
 
   const loginWithGithub = useCallback(async () => {
     setAuthError(null)

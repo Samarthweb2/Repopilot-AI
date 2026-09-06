@@ -11,7 +11,7 @@ interface RepoPilotLogoProps {
 
 /**
  * Precision Hexagon 'R' Logo Emblem (Vector SVG)
- * Accurately modeled after the authentic Hexagon 'R' emblem in signature yellow.
+ * Tightly bounded viewBox with zero wasted padding for seamless alignment.
  */
 export const HexagonREmblem: React.FC<{
   className?: string
@@ -20,15 +20,15 @@ export const HexagonREmblem: React.FC<{
   strokeColor?: string
 }> = ({
   className = '',
-  size = 32,
+  size = 48,
   color = '#FFE600', // Signature vibrant yellow
   strokeColor,
 }) => {
   return (
     <svg
       width={size}
-      height={size}
-      viewBox="0 0 100 100"
+      height={typeof size === 'number' ? Math.round(size * (61 / 78)) : 'auto'}
+      viewBox="11 13.5 78 61"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={`shrink-0 transition-transform duration-200 ${className}`}
@@ -58,8 +58,8 @@ export const HexagonREmblem: React.FC<{
 }
 
 /**
- * RepoPilot Logo: Vertical Stack (Hexagon UP, RepoPilot DOWN)
- * Features the signature handwritten / brush script typography from the inspirational image.
+ * RepoPilot Logo: Compact Vertical Lockup (Hexagon UP, RepoPilot DOWN with tight closeness)
+ * Matches the tight lockup and handwritten script style from the inspirational image.
  */
 export const RepoPilotLogo: React.FC<RepoPilotLogoProps> = ({
   className = '',
@@ -80,27 +80,29 @@ export const RepoPilotLogo: React.FC<RepoPilotLogoProps> = ({
   const textFillColor = textColor || (variant === 'dark' ? '#031728' : variant === 'white' ? '#FFFFFF' : '#E5C800')
 
   const dimensions = {
-    xs: { iconSize: 28, fontSize: 'text-xs', gap: 'gap-0.5', flourishW: 56 },
-    sm: { iconSize: 36, fontSize: 'text-sm sm:text-base', gap: 'gap-0.5', flourishW: 72 },
-    md: { iconSize: 48, fontSize: 'text-lg sm:text-xl', gap: 'gap-1', flourishW: 96 },
-    lg: { iconSize: 68, fontSize: 'text-2xl sm:text-3xl', gap: 'gap-1.5', flourishW: 130 },
-    xl: { iconSize: 96, fontSize: 'text-4xl sm:text-5xl', gap: 'gap-2', flourishW: 180 },
+    xs: { iconSize: 26, fontSize: 'text-xs', flourishW: 52, overlap: '-mt-0.5' },
+    sm: { iconSize: 34, fontSize: 'text-sm', flourishW: 68, overlap: '-mt-1' },
+    md: { iconSize: 46, fontSize: 'text-lg sm:text-xl', flourishW: 92, overlap: '-mt-1.5' },
+    lg: { iconSize: 64, fontSize: 'text-2xl sm:text-3xl', flourishW: 125, overlap: '-mt-2' },
+    xl: { iconSize: 92, fontSize: 'text-4xl sm:text-5xl', flourishW: 175, overlap: '-mt-3' },
   }[size]
 
   return (
     <div
-      className={`inline-flex flex-col items-center justify-center select-none group cursor-pointer ${dimensions.gap} ${className}`}
+      className={`inline-flex flex-col items-center justify-center select-none group cursor-pointer ${className}`}
     >
       {/* 1. Hexagon Logo UP */}
-      <div className="relative flex items-center justify-center transition-transform duration-200 group-hover:scale-105 group-active:scale-95">
+      <div className="relative flex items-center justify-center transition-transform duration-200 group-hover:scale-105 group-active:scale-95 leading-none">
         <HexagonREmblem size={dimensions.iconSize} color={emblemColor} />
       </div>
 
-      {/* 2. RepoPilot Text DOWN in authentic handwritten script style */}
+      {/* 2. RepoPilot Text DOWN (Tucked tightly under the hexagon with closeness) */}
       {showText && (
-        <div className="relative flex flex-col items-center justify-center leading-none">
+        <div
+          className={`relative flex flex-col items-center justify-center leading-none ${dimensions.overlap}`}
+        >
           <span
-            className={`font-['Caveat',cursive] font-bold tracking-tight text-center ${dimensions.fontSize}`}
+            className={`font-['Caveat',cursive] font-bold tracking-tight text-center leading-none ${dimensions.fontSize}`}
             style={{
               color: textFillColor,
               textShadow: '0 0.5px 1px rgba(0,0,0,0.25)',
@@ -110,10 +112,10 @@ export const RepoPilotLogo: React.FC<RepoPilotLogoProps> = ({
           >
             {text}
           </span>
-          {/* Subtle signature brush flourish stroke underneath */}
+          {/* Signature brush flourish stroke underneath */}
           <svg
             width={dimensions.flourishW}
-            height="5"
+            height="4"
             viewBox="0 0 100 8"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"

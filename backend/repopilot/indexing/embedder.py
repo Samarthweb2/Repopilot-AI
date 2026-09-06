@@ -174,7 +174,7 @@ class VoyageEmbedder(BaseEmbedder):
 
 
 class GeminiEmbedder(BaseEmbedder):
-    """Embedder using Google Gemini text-embedding-004 API."""
+    """Embedder using Google Gemini text-embedding-004 API with automatic local fallback."""
 
     def __init__(
         self,
@@ -185,48 +185,64 @@ class GeminiEmbedder(BaseEmbedder):
     ) -> None:
         self.model = model
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-        if not self.api_key:
-            raise ValueError(
-                "Gemini API key not found. Set GEMINI_API_KEY or GOOGLE_API_KEY environment variable."
-            )
         self.base_url = base_url.rstrip("/")
         self.batch_size = batch_size
+        self._fallback = FastTokenFeatureEmbedder(dimension=256)
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         if not texts:
             return []
+        if not self.api_key or not self.api_key.startswith("AIzaSy"):
+            logger.warning("Gemini API key is missing or invalid. Using FastTokenFeatureEmbedder.")
+            return self._fallback.embed_documents(texts)
 
-        embeddings: List[List[float]] = []
-        with httpx.Client(timeout=45.0) as client:
-            for i in range(0, len(texts), self.batch_size):
-                batch = texts[i : i + self.batch_size]
-                requests_payload = [
-                    {
-                        "model": self.model,
-                        "content": {"parts": [{"text": t}]},
-                    }
-                    for t in batch
-                ]
-                url = f"{self.base_url}/{self.model}:batchEmbedContents?key={self.api_key}"
-                response = client.post(url, json={"requests": requests_payload})
-                response.raise_for_status()
-                data = response.json()
-                for item in data.get("embeddings", []):
-                    embeddings.append(item.get("values", []))
+        try:
+            embeddings: List[List[float]] = []
+            with httpx.Client(timeout=30.0) as client:
+                for i in range(0, len(texts), self.batch_size):
+                    batch = texts[i : i + self.batch_size]
+                    requests_payload = [
+                        {
+                            "model": self.model,
+                            "content": {"parts": [{"text": t}]},
+                        }
+                        for t in batch
+                    ]
+                    url = f"{self.base_url}/{self.model}:batchEmbedContents?key={self.api_key}"
+                    response = client.post(url, json={"requests": requests_payload})
+                    response.raise_for_status()
+                    data = response.json()
+                    for item in data.get("embeddings", []):
+                        embeddings.append(item.get("values", []))
 
-        return embeddings
+            if len(embeddings) == len(texts):
+                return embeddings
+        except Exception as e:
+            logger.warning("Gemini batch embedding API error: %s. Falling back to FastTokenFeatureEmbedder.", e)
+
+        return self._fallback.embed_documents(texts)
 
     def embed_query(self, text: str) -> List[float]:
-        with httpx.Client(timeout=30.0) as client:
-            url = f"{self.base_url}/{self.model}:embedContent?key={self.api_key}"
-            payload = {
-                "model": self.model,
-                "content": {"parts": [{"text": text}]},
-            }
-            response = client.post(url, json=payload)
-            response.raise_for_status()
-            data = response.json()
-            return data.get("embedding", {}).get("values", [])
+        if not self.api_key or not self.api_key.startswith("AIzaSy"):
+            return self._fallback.embed_query(text)
+
+        try:
+            with httpx.Client(timeout=20.0) as client:
+                url = f"{self.base_url}/{self.model}:embedContent?key={self.api_key}"
+                payload = {
+                    "model": self.model,
+                    "content": {"parts": [{"text": text}]},
+                }
+                response = client.post(url, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                values = data.get("embedding", {}).get("values", [])
+                if values:
+                    return values
+        except Exception as e:
+            logger.warning("Gemini query embedding error: %s. Falling back to FastTokenFeatureEmbedder.", e)
+
+        return self._fallback.embed_query(text)
 
 
 class FastTokenFeatureEmbedder(BaseEmbedder):

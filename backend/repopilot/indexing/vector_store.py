@@ -147,7 +147,13 @@ class ChromaVectorStore:
             batch_metadatas = metadatas[i : i + BATCH_SIZE]
             batch_raw_codes = raw_codes[i : i + BATCH_SIZE]
 
-            embeddings = self.embedder.embed_documents(batch_docs)
+            try:
+                embeddings = self.embedder.embed_documents(batch_docs)
+            except Exception as e:
+                logger.warning("Embedder %s failed: %s. Using FastTokenFeatureEmbedder.", self.embedder.__class__.__name__, e)
+                from repopilot.indexing.embedder import FastTokenFeatureEmbedder
+                fallback = FastTokenFeatureEmbedder(dimension=256)
+                embeddings = fallback.embed_documents(batch_docs)
 
             self.chunks_collection.upsert(
                 ids=batch_ids,
@@ -190,7 +196,12 @@ class ChromaVectorStore:
             return []
 
         # Embed query vector
-        query_vector = self.embedder.embed_query(query_text)
+        try:
+            query_vector = self.embedder.embed_query(query_text)
+        except Exception as e:
+            logger.warning("Query embedding failed (%s), falling back to FastTokenFeatureEmbedder", e)
+            from repopilot.indexing.embedder import FastTokenFeatureEmbedder
+            query_vector = FastTokenFeatureEmbedder(dimension=256).embed_query(query_text)
 
         # Query Chroma scoped with repo_id filter
         query_res = self.chunks_collection.query(

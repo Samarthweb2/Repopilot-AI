@@ -1,26 +1,52 @@
 import React, { useState, useEffect } from 'react'
 import { Header } from './components/Header'
-import { RepoPilotLogo } from './components/RepoPilotLogo'
 import { LandingPageView } from './views/LandingPageView'
 import { DashboardView } from './views/DashboardView'
 import { ConnectRepoView } from './views/ConnectRepoView'
 import { AskView } from './views/AskView'
+import { AuthModal } from './components/AuthModal'
+import { AuthProvider, useAuth } from './lib/AuthContext'
 import { checkBackendHealth, getRepos } from './lib/api'
 import { RepoSummary } from './types'
-import {
-  ArrowRight,
-  Database,
-  FolderGit2,
-  GitBranch,
-  Layers,
-  Sparkles,
-} from 'lucide-react'
 
-export function App() {
-  const [activeTab, setActiveTab] = useState<'landing' | 'dashboard' | 'connect' | 'ask'>('landing')
+function AppContent() {
+  const { openAuthModal, isAuthenticated, isLoading } = useAuth()
+
+  // Default active tab: 'dashboard' for authenticated users, 'landing' for logged-out visitors
+  const [activeTab, setActiveTab] = useState<'landing' | 'dashboard' | 'connect' | 'ask'>(() => {
+    try {
+      return localStorage.getItem('repopilot_auth_user') ? 'dashboard' : 'landing'
+    } catch {
+      return 'landing'
+    }
+  })
   const [repos, setRepos] = useState<RepoSummary[]>([])
   const [activeRepoId, setActiveRepoId] = useState<string | null>(null)
   const [backendHealthy, setBackendHealthy] = useState<boolean>(true)
+
+  // Sync workspace routing with authentication state
+  useEffect(() => {
+    if (!isLoading) {
+      if (isAuthenticated && activeTab === 'landing') {
+        setActiveTab('dashboard')
+      } else if (!isAuthenticated && activeTab !== 'landing') {
+        setActiveTab('landing')
+      }
+    }
+  }, [isAuthenticated, isLoading])
+
+  // Direct callback invoked whenever login/signup succeeds
+  const handleAuthSuccess = () => {
+    setActiveTab('dashboard')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    refreshRepos()
+  }
+
+  // Direct callback invoked when user signs out
+  const handleSignOut = () => {
+    setActiveTab('landing')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   const refreshRepos = async () => {
     try {
@@ -85,14 +111,17 @@ export function App() {
         activeRepoId={activeRepoId}
         setActiveRepoId={setActiveRepoId}
         backendHealthy={backendHealthy}
+        onSignOut={handleSignOut}
       />
 
-      {/* Primary Landing Page (First View) */}
-      {activeTab === 'landing' ? (
+      {/* Primary Landing Page (For Logged-out Visitors Only) */}
+      {!isAuthenticated || activeTab === 'landing' ? (
         <LandingPageView
           onNavigateToConnect={handleNavigateToConnect}
           onNavigateToDashboard={handleNavigateToDashboard}
           onNavigateToAsk={() => handleNavigateToAsk()}
+          onRegister={() => openAuthModal('signup')}
+          isAuthenticated={isAuthenticated}
           repoCount={repos.length}
         />
       ) : (
@@ -113,22 +142,7 @@ export function App() {
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setActiveTab('landing')}
-                  className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
-                >
-                  Back to Overview
-                </button>
-                <button
-                  onClick={handleNavigateToConnect}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
-                    activeTab === 'connect'
-                      ? 'bg-[#D2FE22] text-black'
-                      : 'bg-white/10 text-slate-200 hover:bg-white/20'
-                  }`}
-                >
-                  Connect Repo
-                </button>
-                <button
+                  id="btn-workspace-dashboard"
                   onClick={handleNavigateToDashboard}
                   className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
                     activeTab === 'dashboard'
@@ -139,6 +153,18 @@ export function App() {
                   Repositories ({repos.length})
                 </button>
                 <button
+                  id="btn-workspace-connect"
+                  onClick={handleNavigateToConnect}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
+                    activeTab === 'connect'
+                      ? 'bg-[#D2FE22] text-black'
+                      : 'bg-white/10 text-slate-200 hover:bg-white/20'
+                  }`}
+                >
+                  Connect Repo
+                </button>
+                <button
+                  id="btn-workspace-ask"
                   onClick={() => handleNavigateToAsk()}
                   className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
                     activeTab === 'ask'
@@ -181,7 +207,7 @@ export function App() {
         </>
       )}
 
-      {/* Nebius Minimalist Footer */}
+      {/* Footer */}
       <footer className="border-t border-slate-200/80 bg-white py-8 text-xs sm:text-sm text-slate-700 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
           <div className="flex flex-wrap items-center gap-x-6 sm:gap-x-8 gap-y-2">
@@ -194,10 +220,13 @@ export function App() {
               RepoPilot AI Cloud Docs
             </a>
             <button
-              onClick={handleNavigateToDashboard}
+              onClick={() => {
+                if (isAuthenticated) setActiveTab('dashboard')
+                else openAuthModal('signin')
+              }}
               className="text-slate-700 hover:text-black transition-colors cursor-pointer"
             >
-              Token Factory Docs
+              Workspace Docs
             </button>
             <div className="flex items-center gap-1.5 text-slate-700">
               <span className={`w-2 h-2 rounded-full inline-block ${backendHealthy ? 'bg-emerald-500' : 'bg-red-500'}`} />
@@ -219,26 +248,6 @@ export function App() {
             >
               Discord
             </a>
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault()
-                setActiveTab('landing')
-              }}
-              className="text-slate-700 hover:text-black transition-colors"
-            >
-              Blog
-            </a>
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault()
-                alert('Security Policy: 100% local AST parsing with strict path-traversal safeguards and offline test verification.')
-              }}
-              className="text-slate-700 hover:text-black transition-colors"
-            >
-              Security
-            </a>
           </div>
 
           <div className="text-slate-500 text-xs sm:text-sm shrink-0">
@@ -246,7 +255,18 @@ export function App() {
           </div>
         </div>
       </footer>
+
+      {/* Global Auth Modal */}
+      <AuthModal onAuthSuccess={handleAuthSuccess} />
     </div>
+  )
+}
+
+export function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   )
 }
 

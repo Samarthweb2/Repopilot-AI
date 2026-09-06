@@ -15,6 +15,12 @@ services:
         sync: false
       - key: REPOPILOT_LLM_PROVIDER
         value: gemini
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: https://repopilot-frontend.onrender.com/oauth/callback
 
   # Frontend Static Site
   - type: web
@@ -33,3 +39,5 @@ services:
           type: web
           name: repopilot-api
           property: host
+      - key: VITE_GOOGLE_CLIENT_ID
+        sync: false

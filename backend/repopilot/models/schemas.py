@@ -1,3 +1,4 @@
+
 """Pydantic schemas for Repopilot AI."""
 
 from typing import List, Optional
@@ -81,4 +82,51 @@ class ErrorDetail(BaseModel):
     """Standard error response detail."""
 
     detail: str = Field(..., description="Description of the error encountered.")
+
+
+class UserResponse(BaseModel):
+    """User profile response."""
+
+    id: str = Field(..., description="Unique user identifier.")
+    email: str = Field(..., description="User email address.")
+    name: str = Field(..., description="Display name of user.")
+    avatar_url: Optional[str] = Field(default=None, description="User avatar image URL.")
+    provider: str = Field(default="email", description="Authentication provider: 'email', 'google', or 'github'.")
+    created_at: str = Field(..., description="ISO creation timestamp.")
+
+
+class UserRegisterRequest(BaseModel):
+    """Request payload for registering a new user."""
+
+    email: str = Field(..., description="User email address.")
+    name: str = Field(..., description="User full or display name.")
+    password: str = Field(..., min_length=6, description="Password with minimum 6 characters.")
+
+
+class UserLoginRequest(BaseModel):
+    """Request payload for logging in with email and password."""
+
+    email: str = Field(..., description="User email address.")
+    password: str = Field(..., description="User password.")
+
+
+class OAuthLoginRequest(BaseModel):
+    """Request payload for authenticating via Google or GitHub OAuth."""
+
+    provider: str = Field(..., description="OAuth provider: 'google' or 'github'.")
+    credential: Optional[str] = Field(default=None, description="OAuth ID token or access token from provider.")
+    code: Optional[str] = Field(default=None, description="OAuth authorization code for token exchange.")
+    redirect_uri: Optional[str] = Field(default=None, description="Redirect URI used in OAuth authorization request.")
+    email: Optional[str] = Field(default=None, description="User email (if provided directly from client OAuth SDK).")
+    name: Optional[str] = Field(default=None, description="User name (if provided directly from client OAuth SDK).")
+    avatar_url: Optional[str] = Field(default=None, description="User avatar URL.")
+
+
+class AuthTokenResponse(BaseModel):
+    """Authentication token response with user profile."""
+
+    access_token: str = Field(..., description="Bearer JWT / session access token.")
+    token_type: str = Field(default="bearer", description="Token type.")
+    user: UserResponse = Field(..., description="Authenticated user profile.")
+
 

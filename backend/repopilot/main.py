@@ -4,6 +4,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from repopilot.api.auth import router as auth_router
 from repopilot.api.routes import router as repos_router
 
 logging.basicConfig(
@@ -30,6 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router)
 app.include_router(repos_router)
 
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Header } from './components/Header'
+import { RepoPilotLogo } from './components/RepoPilotLogo'
 import { LandingPageView } from './views/LandingPageView'
 import { DashboardView } from './views/DashboardView'
 import { ConnectRepoView } from './views/ConnectRepoView'
@@ -184,11 +185,8 @@ export function App() {
       <footer className="border-t border-slate-200 bg-white py-8 text-xs text-slate-600 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div
-              onClick={() => setActiveTab('landing')}
-              className="nebius-logo-badge text-xs font-black px-2 py-0.5 cursor-pointer"
-            >
-              REPOPILOT
+            <div onClick={() => setActiveTab('landing')} className="cursor-pointer">
+              <RepoPilotLogo size="sm" showTag={false} />
             </div>
             <span className="font-semibold text-slate-900">RepoPilot AI</span>
             <span>—</span>

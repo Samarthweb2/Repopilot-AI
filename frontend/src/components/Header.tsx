@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { RepoSummary } from '../types'
+import { RepoPilotLogo } from './RepoPilotLogo'
 import {
   Sparkles,
   X,
@@ -25,6 +26,9 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [authModal, setAuthModal] = useState<'signin' | 'signup' | null>(null)
   const [isScrolled, setIsScrolled] = useState(false)
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authSubmitted, setAuthSubmitted] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -51,9 +55,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setActiveTab('landing')}
             className="cursor-pointer flex items-center gap-2 group"
           >
-            <div className="nebius-logo-badge text-sm sm:text-base font-black px-3 py-1 tracking-tight">
-              REPOPILOT
-            </div>
+            <RepoPilotLogo size="md" showTag={true} />
           </div>
         </div>
 

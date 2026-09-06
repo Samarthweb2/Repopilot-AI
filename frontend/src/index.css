@@ -110,24 +110,32 @@
   transform: translateY(-1px);
 }
 
-/* Nebius Logo Badge */
+/* Nebius / RepoPilot Signature Logo Badge */
+.repopilot-logo-badge,
 .nebius-logo-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background-color: #D2FE22;
-  color: #000000;
+  background: linear-gradient(135deg, #D4FB50 0%, #D2FE22 100%);
+  color: #031728;
   font-weight: 900;
-  font-family: 'Space Mono', monospace;
-  letter-spacing: -0.05em;
-  padding: 0.35rem 0.75rem;
-  border-radius: 0.5rem;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease;
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: -0.03em;
+  border-radius: 0.625rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.repopilot-logo-badge:hover,
 .nebius-logo-badge:hover {
-  transform: scale(1.03);
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 4px 14px rgba(210, 254, 34, 0.45);
+}
+
+.repopilot-logo-badge:active,
+.nebius-logo-badge:active {
+  transform: translateY(0) scale(0.98);
 }
 
 /* Nebius Clean Card */

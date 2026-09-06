@@ -48,9 +48,9 @@ export const Header: React.FC<HeaderProps> = ({
       }`}
     >
       {/* Top Navbar Row */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between relative">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 sm:h-20 flex items-center justify-between relative">
         {/* Left: Stacked Hexagon R Brand Logo */}
-        <div className="flex items-center shrink-0 py-1">
+        <div className="flex items-center shrink-0 py-1.5">
           <div
             onClick={() => setActiveTab('landing')}
             className="cursor-pointer flex items-center group"

@@ -80,11 +80,11 @@ export const RepoPilotLogo: React.FC<RepoPilotLogoProps> = ({
   const textFillColor = textColor || (variant === 'dark' ? '#031728' : variant === 'white' ? '#FFFFFF' : '#E5C800')
 
   const dimensions = {
-    xs: { iconSize: 26, fontSize: 'text-xs', flourishW: 52, overlap: '-mt-0.5' },
-    sm: { iconSize: 34, fontSize: 'text-sm', flourishW: 68, overlap: '-mt-1' },
-    md: { iconSize: 46, fontSize: 'text-lg sm:text-xl', flourishW: 92, overlap: '-mt-1.5' },
-    lg: { iconSize: 64, fontSize: 'text-2xl sm:text-3xl', flourishW: 125, overlap: '-mt-2' },
-    xl: { iconSize: 92, fontSize: 'text-4xl sm:text-5xl', flourishW: 175, overlap: '-mt-3' },
+    xs: { iconSize: 22, fontSize: 'text-sm font-bold', flourishW: 55, overlap: '-mt-0.5' },
+    sm: { iconSize: 26, fontSize: 'text-base font-extrabold', flourishW: 70, overlap: '-mt-0.5' },
+    md: { iconSize: 32, fontSize: 'text-xl sm:text-2xl font-black', flourishW: 95, overlap: '-mt-1' },
+    lg: { iconSize: 42, fontSize: 'text-2xl sm:text-3xl font-black', flourishW: 125, overlap: '-mt-1.5' },
+    xl: { iconSize: 56, fontSize: 'text-4xl sm:text-5xl font-black', flourishW: 175, overlap: '-mt-2' },
   }[size]
 
   return (
@@ -102,12 +102,12 @@ export const RepoPilotLogo: React.FC<RepoPilotLogoProps> = ({
           className={`relative flex flex-col items-center justify-center leading-none ${dimensions.overlap}`}
         >
           <span
-            className={`font-['Caveat',cursive] font-bold tracking-tight text-center leading-none ${dimensions.fontSize}`}
+            className={`font-['Caveat',cursive] tracking-tight text-center leading-none ${dimensions.fontSize}`}
             style={{
               color: textFillColor,
-              textShadow: '0 0.5px 1px rgba(0,0,0,0.25)',
+              textShadow: '0 1px 2px rgba(0,0,0,0.3)',
               transform: 'rotate(-1.5deg)',
-              letterSpacing: '-0.01em',
+              letterSpacing: '-0.02em',
             }}
           >
             {text}
@@ -115,16 +115,16 @@ export const RepoPilotLogo: React.FC<RepoPilotLogoProps> = ({
           {/* Signature brush flourish stroke underneath */}
           <svg
             width={dimensions.flourishW}
-            height="4"
+            height="5"
             viewBox="0 0 100 8"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
-            className="opacity-70 -mt-0.5"
+            className="opacity-80 -mt-0.5"
           >
             <path
               d="M 5 4 Q 50 7 95 2"
               stroke={emblemColor}
-              strokeWidth="2"
+              strokeWidth="2.5"
               strokeLinecap="round"
             />
           </svg>

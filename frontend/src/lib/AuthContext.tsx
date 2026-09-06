@@ -61,7 +61,12 @@ const STORAGE_USER_KEY = 'repopilot_auth_user'
 
 function getApiBase(): string {
   const raw = (import.meta.env.VITE_API_URL as string)?.trim() || ''
-  if (!raw) return ''
+  if (!raw) {
+    if (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')) {
+      return 'https://repopilot-api.onrender.com'
+    }
+    return ''
+  }
   if (!raw.startsWith('http://') && !raw.startsWith('https://')) {
     return `https://${raw}`
   }
@@ -92,18 +97,25 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
     }
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    credentials: 'include', // Ensures httpOnly cookies are automatically sent & received
-    headers,
-  })
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      credentials: 'include', // Ensures httpOnly cookies are automatically sent & received
+      headers,
+    })
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: 'Request failed' }))
-    const msg = err.detail || `Request failed with status ${res.status}`
-    throw new Error(msg)
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Request failed' }))
+      const msg = err.detail || `Request failed with status ${res.status}`
+      throw new Error(msg)
+    }
+    return res.json()
+  } catch (err: any) {
+    if (err.name === 'TypeError' && (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError'))) {
+      throw new Error('Could not reach Repopilot backend API. The free server may take ~30s to wake up from sleep. Please try again.')
+    }
+    throw err
   }
-  return res.json()
 }
 
 // ─── Provider ───────────────────────────────────────────────────────────────────
@@ -225,7 +237,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithGoogle = useCallback(async () => {
     setAuthError(null)
-    const googleClientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string)?.trim()
+    const googleClientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string)?.trim() || ''
 
     // 1. If Google Identity Services SDK is loaded and Client ID is configured, open Google Account Chooser popup
     if (googleClientId && window.google?.accounts?.oauth2) {

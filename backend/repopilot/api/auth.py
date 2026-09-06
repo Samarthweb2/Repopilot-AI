@@ -60,7 +60,7 @@ _load_env_file()
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
-GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:5173/oauth/callback")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "https://repopilot-frontend-5md.onrender.com/oauth/callback")
 
 # In-memory user database: email -> user record
 _USER_DB: Dict[str, dict] = {}
